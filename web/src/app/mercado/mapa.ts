@@ -8,12 +8,12 @@ import { Listing } from '../market';
   selector: 'app-mapa',
   template: '<div class="lienzo" #lienzo></div>',
   styles: `
-    .lienzo { height: 340px; border: 1px solid var(--line); border-radius: 6px; background: #11161f; }
+    .lienzo { height: 400px; border: 1px solid var(--line); border-radius: var(--radius); background: #11161f; }
     /* El mapa de OSM es claro; esto lo vuelve oscuro sin necesitar otra fuente. */
     .lienzo ::ng-deep .leaflet-tile-pane { filter: invert(1) hue-rotate(180deg) brightness(.85) contrast(.9); }
     .lienzo ::ng-deep .leaflet-control-attribution { background: rgba(0,0,0,.5); color: var(--mute); }
     .lienzo ::ng-deep .leaflet-control-attribution a { color: var(--mute); }
-    @media (max-width: 700px) { .lienzo { height: 240px; } }
+    @media (max-width: 700px) { .lienzo { height: 260px; } }
   `,
 })
 export class Mapa {
@@ -47,9 +47,9 @@ export class Mapa {
       const gana = a.seller === this.ganador();
       const marcado = this.destacados().has(a.seller);
       L.circleMarker([a.lat, a.lon], {
-        radius: gana ? 11 : marcado ? 8 : 5,
+        radius: gana ? 14 : marcado ? 10 : 7,
         color: gana ? '#4ec9a8' : marcado ? '#e0a44a' : '#6ba3d6',
-        weight: 2, fillOpacity: gana ? 0.7 : 0.25,
+        weight: 2.5, fillOpacity: gana ? 0.8 : marcado ? 0.45 : 0.3,
       })
         .bindTooltip(`${a.owner} · ${a.city ?? ''}<br>${a.item} — $${a.minPrice} · ${a.leadDays} días`, { direction: 'top' })
         .addTo(this.capa);

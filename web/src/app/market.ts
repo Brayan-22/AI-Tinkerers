@@ -37,6 +37,7 @@ export class Market {
   readonly found = signal<Listing[]>([]);
   readonly rfqId = signal<string | null>(null);
   readonly demanda = signal<{ item: string; qty: number } | null>(null);
+  readonly enMesa = signal(0); // proveedores cotizando en la compra que se mira
   readonly quotes = signal<Quote[]>([]);
   readonly rejected = signal<(Quote & { reason: string })[]>([]);
   readonly award = signal<Awarded | null>(null);
@@ -109,6 +110,7 @@ export class Market {
       case 'rfq_open':
         this.rfqId.set(ev.rfq);
         this.demanda.set({ item: ev.item, qty: ev.qty });
+        this.enMesa.set(ev.suppliers?.length ?? 0);
         this.comprando.set(true);
         this.quotes.set([]); this.rejected.set([]); this.award.set(null); this.contrato.set(null);
         return this.say({ cls: 'sys', who: 'mercado', text: `${ev.buyer} pide ${ev.qty} × ${ev.item} a ${ev.suppliers.length} proveedores`, reason: `tope ${money(ev.maxPrice)} por unidad, entrega en ${ev.maxLeadDays} días` });
