@@ -380,23 +380,67 @@ async function descubrirProveedores(id, demand, sink) {
 // ── Telegram: el proveedor, en su propio celular ───────────────────────────
 const telegram = telegramChannel({ onEvent: publish, onMessage: mensajeDeTelegram });
 
-const BIENVENIDA = `Soy el agente de compras de *Mercadia*.
+const AYUDA = `*Mercadia* · el agente de compras.
 
-Si vendes algo, dime qué vendes y dónde estás:
-\`/vendo botellas de agua en Bogotá\`
+Conecto a quien necesita comprar con proveedores como tú. Así funciona:
 
-Cuando alguien lo necesite te escribo por acá y tú me contestas precio y plazo como le contestarías a cualquier cliente. Nada que instalar.`;
+*1.* Te registras diciendo qué vendes y dónde estás.
+*2.* Cuando alguien lo necesite, te escribo por acá y te pregunto precio y plazo.
+*3.* Me contestas en texto normal, como a cualquier cliente:
+     _"a $1.200 la unidad, entrego en 2 días"_
+*4.* Compito tu oferta contra las demás. Si ganas, te llega el contrato.
 
+No tienes que instalar nada ni estar pendiente. Solo contestar cuando escriba.
+
+*Comandos*
+/vendo _qué vendes_ — registrarte
+/mis — ver lo que tienes publicado
+/borrar — dejar de vender
+/ayuda — esto`;
+
+// Un proveedor se registra en dos pasos: qué vende y dónde está. Si no dice la
+// ciudad, se le pregunta en vez de guardar un registro a medias.
 async function mensajeDeTelegram(texto, quien) {
   const t = String(texto).trim();
-  if (/^\/(start|ayuda|help)/i.test(t)) return telegram.decir(quien.chat, BIENVENIDA);
+  const name = `PROV-${slug(quien.name)}`;
 
-  const m = t.match(/^\/?vendo\s+(.+?)(?:\s+en\s+([^,.]+))?$/i);
-  if (!m) return telegram.decir(quien.chat, BIENVENIDA);
+  if (/^\/(start|ayuda|help|comenzar)\b/i.test(t)) return telegram.decir(quien.chat, AYUDA);
+
+  if (/^\/mis\b/i.test(t)) {
+    const mias = store.listingsOf(name);
+    if (!mias.length) return telegram.decir(quien.chat, 'Todavía no vendes nada acá. Empieza con:\n`/vendo computadores`');
+    return telegram.decir(quien.chat,
+      `Vendes esto${mias[0].city ? ` desde *${mias[0].city}*` : ''}:\n`
+      + mias.map((m) => `  · ${m.item}`).join('\n')
+      + '\n\nTe escribo cuando alguien lo pida. /borrar para salir del catálogo.');
+  }
+
+  if (/^\/borrar\b/i.test(t)) {
+    const cuantas = store.dropListings(name);
+    return telegram.decir(quien.chat, cuantas
+      ? `Listo, saqué ${cuantas === 1 ? 'tu publicación' : `tus ${cuantas} publicaciones`} del catálogo. Vuelve cuando quieras con /vendo.`
+      : 'No tenías nada publicado.');
+  }
+
+  // /vendo, /vender, /venta o simplemente "vendo …": lo que la gente escribe.
+  const m = t.match(/^\/?(?:vendo|vender|venta|ofrezco)\s+(.+?)(?:\s+en\s+([^,.]+))?\s*$/i);
+  if (!m) {
+    return telegram.decir(quien.chat,
+      'No te entendí. Dime qué vendes así:\n`/vendo computadores`\n\n/ayuda si quieres el resumen completo.');
+  }
 
   const item = m[1].trim().slice(0, 60);
-  const donde = cityOf(m[2] ?? '') ?? cityOf(t);
-  const name = `PROV-${slug(quien.name)}`;
+  let donde = cityOf(m[2] ?? '') ?? cityOf(t);
+
+  if (!donde) {
+    await telegram.decir(quien.chat,
+      `Anotado: *${item}*.\n¿En qué ciudad estás? Así solo te llegan pedidos que puedas cumplir a tiempo.`);
+    const ciudad = await telegram.esperar(quien.chat, 180_000);
+    donde = cityOf(ciudad ?? '');
+    if (!donde && ciudad) {
+      await telegram.decir(quien.chat, `No tengo *${String(ciudad).slice(0, 40)}* en el mapa, así que te dejo sin ubicación. Igual te llegan los pedidos.`);
+    }
+  }
 
   store.recordAgent(name, quien.name);
   store.setTelegram(name, quien.chat);
@@ -405,12 +449,11 @@ async function mensajeDeTelegram(texto, quien) {
   publish({ type: 'listing', seller: name, owner: quien.name, item, via: 'telegram', city: donde?.city ?? null });
 
   return telegram.decir(quien.chat,
-    `Listo, *${quien.name}*. Quedaste como proveedor de *${item}*${donde ? ` en ${donde.city}` : ''}.\n`
-    + `Te escribo cuando alguien lo pida. Contesta con precio por unidad y en cuántos días entregas.`);
+    `Listo, *${quien.name}*. Vendes *${item}*${donde ? ` desde *${donde.city}*` : ''}.\n\n`
+    + 'Cuando alguien lo necesite te escribo acá preguntando *precio por unidad* y *en cuántos días entregas*. '
+    + 'Contestas normal, sin formato: _"a $1.200 cada uno, en 2 días"_.\n\n'
+    + 'Si tu oferta gana, te llega el contrato firmado. /mis para ver lo tuyo.');
 }
-
-// ── Ambiguous: el sistema de registro del agente (no la superficie humana) ──
-const ambiguous = ambiguousChannel({ onEvent: publish });
 
 // ── Slack: el agente donde ya se compra ────────────────────────────────────
 const slack = slackChannel({ onEvent: publish, onDemand: pedidoDeSlack });

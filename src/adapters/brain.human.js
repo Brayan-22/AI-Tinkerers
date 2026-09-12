@@ -38,7 +38,10 @@ export function humanBrain(canal, chatId, { timeoutMs = 120_000, qty, comprador 
 
     const pregunta = view.lastQuote && view.round > 1
       ? `Tengo otras cotizaciones más bajas que $${view.lastQuote.price}. ¿Me lo mejoras y cerramos?`
-      : `Hola 👋 Soy el agente de compras de *${comprador ?? 'un cliente'}*. Necesito *${cantidad}* de *${view.item}*.\n¿A cómo la unidad y en cuántos días entregas?`;
+      : `Hola 👋 Soy el agente de compras de *${comprador ?? 'un cliente'}*.\n\n`
+        + `Necesito *${cantidad}* de *${view.item}*.\n`
+        + `¿A cómo la unidad y en cuántos días entregas?\n\n`
+        + `_Contesta normal, por ejemplo: "a $1.200 cada uno, en 2 días"._`;
 
     await canal.decir(chatId, pregunta);
     const respuesta = await canal.esperar(chatId, timeoutMs);

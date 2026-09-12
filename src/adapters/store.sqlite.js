@@ -65,6 +65,9 @@ export function openStore(path = env('DB_PATH', './data/mercadia.db')) {
     listar: db.prepare(`INSERT INTO listings (seller,item,lead_days,min_price,source,url) VALUES (?,?,?,?,?,?)
       ON CONFLICT(seller,item) DO UPDATE SET lead_days = excluded.lead_days, min_price = excluded.min_price,
         source = COALESCE(excluded.source, source), url = COALESCE(excluded.url, url)`),
+    mias: db.prepare(`SELECT l.item, l.lead_days AS leadDays, a.city
+      FROM listings l JOIN agents a ON a.name = l.seller WHERE l.seller = ? ORDER BY l.item`),
+    borrarMias: db.prepare('DELETE FROM listings WHERE seller = ?'),
     catalogo: db.prepare(`SELECT l.seller, l.item, l.lead_days AS leadDays, l.min_price AS minPrice,
         l.source, l.url, a.owner, a.lat, a.lon, a.city, a.country, a.deals, a.violations, a.telegram
       FROM listings l JOIN agents a ON a.name = l.seller ORDER BY l.item, l.min_price`),
@@ -144,6 +147,8 @@ export function openStore(path = env('DB_PATH', './data/mercadia.db')) {
       q.listar.run(seller, item, leadDays ?? null, minPrice ?? null, source ?? null, url ?? null);
     },
     catalog() { return q.catalogo.all(); },
+    listingsOf(seller) { return q.mias.all(seller); },
+    dropListings(seller) { return Number(q.borrarMias.run(seller).changes); },
     search(item) { return q.buscar.all(`%${String(item ?? '').trim()}%`); },
 
     saveContract(id, html, sheet) { q.guardarContrato.run(id, html, JSON.stringify(sheet)); },

@@ -37,6 +37,13 @@ export function telegramChannel({ token = process.env.TELEGRAM_BOT_TOKEN, onMess
     const yo = await api('getMe');
     if (!yo.ok) return { ok: false, error: yo.description ?? 'token rechazado' };
     corriendo = true;
+    // El menú de comandos que Telegram muestra en el botón de la izquierda.
+    await api('setMyCommands', { commands: [
+      { command: 'vendo', description: 'Registrar algo que vendes' },
+      { command: 'mis', description: 'Ver lo que tienes publicado' },
+      { command: 'borrar', description: 'Dejar de vender' },
+      { command: 'ayuda', description: 'Cómo funciona esto' },
+    ] });
     onEvent?.({ type: 'telegram_ready', bot: yo.result?.username });
 
     (async () => {
