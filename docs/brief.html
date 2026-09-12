@@ -367,13 +367,13 @@
   <section>
     <h2>El flujo, paso por paso</h2>
     <ol class="pasos">
-      <li><b>Pides en Slack</b> <span>en lenguaje natural. El agente extrae producto, cantidad, techo de precio y plazo.</span></li>
+      <li><b>Pides, por una de dos puertas</b> <span>en Slack en lenguaje natural, o en el formulario de la página. Las dos llaman al mismo motor; de aquí en adelante el recorrido es idéntico. El agente extrae producto, cantidad, techo de precio y plazo.</span></li>
       <li><b>Revisa a quién ya le compraste</b> <span>en ese canal. Si no pones techo, lo estima de tu última compra y te lo dice.</span></li>
       <li><b>Arma la lista de proveedores</b> <span>con tres fuentes: personas registradas por Telegram, agentes conectados por el API, y empresas que Exa encuentra en la web.</span></li>
       <li><b>Cotiza con todos a la vez</b> <span>y regatea. A las personas les escribe al celular; a los agentes por su protocolo.</span></li>
       <li><b>Descarta</b> <span>al que no llega en plazo, al que se pasa del techo y al que no cabe en el presupuesto, diciendo por qué en cada caso.</span></li>
       <li><b>Adjudica</b> <span>al más barato que cumple. Empate en precio, gana el que entrega más rápido.</span></li>
-      <li><b>Te pide el botón</b> <span>en el mismo hilo. Si nadie aprueba en diez minutos, el trato se cae solo.</span></li>
+      <li><b>Te pide permiso</b> <span>con un botón en el hilo si entraste por Slack, o con un enlace firmado si entraste por la página. Si nadie aprueba en diez minutos, el trato se cae solo.</span></li>
       <li><b>Cierra</b> <span>con escrow, revisión del guardián y firma EIP-191 de las dos partes. Sin las dos firmas no se mueve un peso.</span></li>
       <li><b>Entrega el contrato</b> <span>a comprador y proveedor, con las cotizaciones que perdieron y el hash de la negociación anclado.</span></li>
     </ol>
@@ -442,12 +442,14 @@
           <tr><td><strong>Telegram</strong></td><td>cada proveedor, en su celular</td><td>contesta precio y plazo en texto libre</td></tr>
           <tr><td><strong>Correo</strong></td><td>el dueño del presupuesto</td><td>autoriza por enlace firmado y recibe el contrato</td></tr>
           <tr><td><strong>Ambiguous AI</strong></td><td>el agente, como colega con credenciales</td><td>deja el rastro de cada compra: cotizaciones, CRM, contrato a firma</td></tr>
-          <tr><td><strong>Web</strong></td><td>quien quiera mirar</td><td>geovisor y la negociación en vivo</td></tr>
+          <tr><td><strong>Web</strong></td><td>quien no tenga Slack, y la sala</td><td>segunda puerta de compra, geovisor y negociación en vivo para proyectar</td></tr>
           <tr><td><strong>A2A</strong></td><td>otros agentes</td><td>Agent Card en <code>/.well-known/</code> para descubrir y conectarse</td></tr>
         </tbody>
       </table>
     </div>
     <p>El puerto de aprobación del dominio es el mismo en los tres canales humanos. Empezó siendo un correo y después fue un botón de Slack. El dominio nunca se enteró del cambio: eso es lo que paga la arquitectura hexagonal.</p>
+    <h3>Cómo lo obtiene una empresa</h3>
+    <p>Hoy es <strong>una instancia por empresa</strong>: sin cuentas, sin login y sin aislamiento entre organizaciones. Quien lo quiera clona el repo, crea su app de Slack y su bot de Telegram, y despliega. Para repartirlo como producto falta el flujo de instalación con OAuth de Slack y una columna de inquilino en cada tabla. Con un detalle de diseño que conviene no perder: el catálogo debería quedar <em>compartido</em> entre inquilinos, porque eso es lo que lo vuelve un mercado, mientras las compras y el historial de cada canal siguen aislados.</p>
   </section>
 
   <section>

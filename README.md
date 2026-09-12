@@ -101,6 +101,63 @@ sigue cerrando tratos. `npm run estado` te lo dice antes de arrancar.
 El puerto `approve` del dominio es el mismo en los tres canales. Empezó siendo
 un correo, después un botón de Slack. El dominio nunca se enteró del cambio.
 
+## Las dos puertas (y quién es el dueño de la instancia)
+
+Una compra se abre de dos formas distintas, y de ahí en adelante el recorrido
+es idéntico porque las dos llaman a la misma función:
+
+```
+  PUERTA A · Slack                    PUERTA B · la página
+  el comprador escribe                el comprador llena el formulario
+  en el canal de su equipo            en  /  (busca, ve el mapa, pide)
+          │                                   │
+          │  mensaje → extraer pedido         │  POST /api/buy
+          └───────────────┬───────────────────┘
+                          ▼
+                  comprar()  ← el mismo motor
+          cotizar en paralelo · descartar · adjudicar
+                          │
+        ┌─────────────────┼──────────────────┐
+        ▼                 ▼                  ▼
+  botón en el hilo   enlace por correo   proveedor en su celular
+   (puerta A)         (puerta B)          (Telegram, las dos)
+                          │
+                          ▼
+              contrato firmado a las dos partes
+```
+
+La página no es un paso del flujo: es la otra puerta. Sirve para tres cosas
+distintas y conviene no confundirlas.
+
+1. **Puerta sin Slack.** El formulario abre la compra igual. Es el camino
+   verificado de punta a punta, y el que funciona sin un solo token.
+2. **Pantalla grande.** El geovisor y la negociación en vivo, para proyectar
+   mientras el hilo de Slack y los celulares se mueven. Es un visor, no un
+   control.
+3. **Instrumentos de demostración.** `/arena` para ver al guardián expulsar a
+   un ladrón, `/atacar` para que el público suelte uno desde el celular.
+
+### Cómo lo obtiene una empresa
+
+Hoy Mercadia es **una instancia por empresa**. No hay cuentas, ni login, ni
+aislamiento entre organizaciones: un servidor, un archivo SQLite, una app de
+Slack, un bot de Telegram y un catálogo. Quien lo quiera, lo despliega:
+
+```
+1. clona el repo y llena su .env
+2. crea su app de Slack (socket mode) y su bot de Telegram
+3. ./deploy/cloudrun.sh   →  su propia instancia
+4. sus proveedores le mandan /start al bot
+```
+
+Eso es honesto y es como arranca casi toda herramienta de compras B2B. Lo que
+falta para que sea un producto que se reparte es el flujo de instalación:
+**OAuth de Slack** (el botón «Añadir a Slack» que guarda un token por
+`team_id`), una columna de inquilino en cada tabla, y la decisión de qué se
+comparte. Lo interesante de este producto es que el catálogo **debería** ser
+compartido entre inquilinos, porque eso es lo que lo vuelve un mercado, mientras
+que las compras y el historial de precios de cada canal quedan aislados.
+
 ## Cómo se compra
 
 ```
