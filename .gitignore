@@ -4,3 +4,8 @@ wallets.json
 data/
 web/dist/
 .ambi/
+
+# terraform de deploy/aws: el estado trae las llaves
+.terraform/
+*.tfstate
+*.tfstate.*

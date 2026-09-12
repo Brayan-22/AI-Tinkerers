@@ -407,19 +407,19 @@ sobrevive al reinicio: sin ella el detector de explotación se queda ciego.
 
 ## El dominio
 
-`mercadia.space`. Tres sitios lo usan y conviene no dejar ninguno a medias:
+`mercadia.bacode.online`. Tres sitios lo usan y conviene no dejar ninguno a medias:
 
-- **`PUBLIC_URL=https://mercadia.space`**, que es la base de los enlaces de
+- **`PUBLIC_URL=https://mercadia.bacode.online`**, que es la base de los enlaces de
   autorización y de contrato. Si queda vacío apuntan a `localhost` y no sirven
   desde un celular.
 - **El remitente del correo.** Con el dominio verificado en Resend, `MAIL_FROM`
-  puede ser cualquier dirección de `mercadia.space` y el destinatario cualquiera.
+  puede ser cualquier dirección de `mercadia.bacode.online` y el destinatario cualquiera.
   Sin verificar, el único remitente posible es `onboarding@resend.dev` y solo
   puede escribirle al dueño de la cuenta de Resend.
 - **El mapeo en Cloud Run**, después del primer despliegue:
   ```bash
   gcloud run domain-mappings create --service mercadia \
-    --domain mercadia.space --region us-central1
+    --domain mercadia.bacode.online --region us-central1
   ```
   Requiere verificar la propiedad del dominio en Search Console y apuntar los
   registros que Cloud Run devuelve.
@@ -456,6 +456,20 @@ La base en `/tmp` es efímera. No rompe la demo, porque el catálogo se siembra
 al arrancar, pero el historial de precios del canal empieza de cero en cada
 reinicio. Para que persista: un bucket con Cloud Storage FUSE, o mover el
 store a Postgres.
+
+### AWS (Fargate + Terraform)
+
+`deploy/aws/` es lo mismo en AWS: una tarea de ECS Fargate siempre prendida
+detrás de un ALB (que deja pasar el WebSocket), SQLite en EFS para que la base
+sobreviva a los despliegues, las llaves en Parameter Store y el dominio
+en la zona de Route53 de `bacode.online`. Lambda no sirve por las mismas razones de abajo.
+
+```bash
+aws login
+./deploy/aws/desplegar.sh        # imagen + infraestructura; repetir para cada despliegue
+```
+
+El `terraform.tfstate` queda local y trae las llaves: no se sube.
 
 ### Si de verdad quieres funciones
 
@@ -537,7 +551,7 @@ no puede escribir primero.
 
 Sin dominio verificado en Resend, el único remitente que funciona es
 `onboarding@resend.dev`, y solo puede escribirle al correo con el que abriste
-la cuenta. Con `mercadia.space` verificado, el remitente puede ser cualquier
+la cuenta. Con `mercadia.bacode.online` verificado, el remitente puede ser cualquier
 dirección del dominio y el destinatario cualquiera.
 
 En swarm los secretos entran como archivo: cualquiera de arriba acepta

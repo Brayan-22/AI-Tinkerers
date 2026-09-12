@@ -5,3 +5,6 @@ data
 wallets.json
 .git
 .env
+deploy/aws/.terraform
+deploy/aws/*.tfstate*
+.ambi
