@@ -1,0 +1,47 @@
+# Manifiesto de la app de Slack de Mercadia.
+#
+#   api.slack.com/apps → Create New App → From an app manifest → pega esto.
+#
+# Trae todo lo que el adaptador (src/adapters/channel.slack.js) necesita:
+#   · Socket Mode: Slack abre el websocket hacia nosotros, sin URL pública
+#   · Interactividad: sin esto los botones de Autorizar/Rechazar se ven pero
+#     no responden, y la compra se cae a los diez minutos por timeout
+#   · eventos app_mention (mención en un canal) y message.im (DM al bot)
+#   · pestaña de mensajes activa, para poder escribirle al bot en directo
+#
+# Los tokens no viven en el manifiesto; después de crear la app:
+#   1. Basic Information → App-Level Tokens → Generate → scope connections:write
+#      → SLACK_APP_TOKEN (xapp-…)
+#   2. Install App → Install to Workspace → Bot User OAuth Token
+#      → SLACK_BOT_TOKEN (xoxb-…)
+#   3. En Slack: /invite @Mercadia en el canal donde se compra.
+#   4. npm run slack:check
+display_information:
+  name: Mercadia
+  description: El agente de compras que cotiza con varios proveedores a la vez y vuelve con la mejor
+  background_color: "#0a0e14"
+features:
+  bot_user:
+    display_name: Mercadia
+    always_online: true
+  app_home:
+    messages_tab_enabled: true
+    messages_tab_read_only_enabled: false
+oauth_config:
+  scopes:
+    bot:
+      - app_mentions:read
+      - chat:write
+      - im:history
+      - im:read
+      - users:read
+settings:
+  event_subscriptions:
+    bot_events:
+      - app_mention
+      - message.im
+  interactivity:
+    is_enabled: true
+  socket_mode_enabled: true
+  org_deploy_enabled: false
+  token_rotation_enabled: false
