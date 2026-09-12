@@ -18,7 +18,8 @@ IMAGEN="gcr.io/$PROYECTO/$SERVICIO"
 g() { gcloud --project "$PROYECTO" --quiet "$@"; }
 
 echo "▸ habilitando APIs"
-g services enable run.googleapis.com cloudbuild.googleapis.com secretmanager.googleapis.com containerregistry.googleapis.com
+g services enable run.googleapis.com cloudbuild.googleapis.com secretmanager.googleapis.com \
+  artifactregistry.googleapis.com containerregistry.googleapis.com
 
 # ── Secretos ─────────────────────────────────────────────────────────────────
 # Cada llave del .env que tenga valor se sube a Secret Manager. Las que estén
