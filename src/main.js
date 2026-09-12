@@ -380,6 +380,9 @@ async function descubrirProveedores(id, demand, sink) {
 // ── Telegram: el proveedor, en su propio celular ───────────────────────────
 const telegram = telegramChannel({ onEvent: publish, onMessage: mensajeDeTelegram });
 
+// ── Ambiguous: el sistema de registro del agente (no la superficie humana) ──
+const ambiguous = ambiguousChannel({ onEvent: publish });
+
 const AYUDA = `*Mercadia* · el agente de compras.
 
 Conecto a quien necesita comprar con proveedores como tú. Así funciona:
