@@ -8,6 +8,17 @@ import { DatabaseSync } from 'node:sqlite';
 import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 
+// Palabras de más de dos letras, sin acentos ni signos y sin plural.
+function normalizar(texto) {
+  return String(texto ?? '').toLowerCase().normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9 ]/g, ' ')
+    .split(/\s+/)
+    .filter((w) => w.length > 2)
+    .map((w) => w.replace(/(es|s)$/, ''))
+    .join(' ');
+}
+
 export function openStore(path = env('DB_PATH', './data/mercadia.db')) {
   if (path !== ':memory:') mkdirSync(dirname(path), { recursive: true });
   const db = new DatabaseSync(path);
@@ -149,7 +160,16 @@ export function openStore(path = env('DB_PATH', './data/mercadia.db')) {
     catalog() { return q.catalogo.all(); },
     listingsOf(seller) { return q.mias.all(seller); },
     dropListings(seller) { return Number(q.borrarMias.run(seller).changes); },
-    search(item) { return q.buscar.all(`%${String(item ?? '').trim()}%`); },
+    // "silla de oficina" tiene que encontrar "sillas de oficinas". Se comparan
+    // las palabras con el plural recortado, en los dos sentidos.
+    search(item) {
+      const clave = normalizar(item);
+      if (!clave) return [];
+      return q.catalogo.all().filter((r) => {
+        const suyo = normalizar(r.item);
+        return suyo.includes(clave) || clave.includes(suyo);
+      });
+    },
 
     saveContract(id, html, sheet) { q.guardarContrato.run(id, html, JSON.stringify(sheet)); },
     contract(id) {
