@@ -386,6 +386,25 @@ ubicaciones, tratos, contratos, eventos, reputación, direcciones probadas,
 depósitos acreditados, saldos y llaves en custodia. La historia de precios
 sobrevive al reinicio: sin ella el detector de explotación se queda ciego.
 
+## El dominio
+
+`mercadia.space`. Tres sitios lo usan y conviene no dejar ninguno a medias:
+
+- **`PUBLIC_URL=https://mercadia.space`**, que es la base de los enlaces de
+  autorización y de contrato. Si queda vacío apuntan a `localhost` y no sirven
+  desde un celular.
+- **El remitente del correo.** Con el dominio verificado en Resend, `MAIL_FROM`
+  puede ser cualquier dirección de `mercadia.space` y el destinatario cualquiera.
+  Sin verificar, el único remitente posible es `onboarding@resend.dev` y solo
+  puede escribirle al dueño de la cuenta de Resend.
+- **El mapeo en Cloud Run**, después del primer despliegue:
+  ```bash
+  gcloud run domain-mappings create --service mercadia \
+    --domain mercadia.space --region us-central1
+  ```
+  Requiere verificar la propiedad del dominio en Search Console y apuntar los
+  registros que Cloud Run devuelve.
+
 ## Serverless (Cloud Run)
 
 Sí, con una precisión: **serverless de contenedor, no de funciones.**
@@ -447,6 +466,7 @@ sacarla y qué se apaga si falta. Los scripts la cargan solos
 | descubrimiento | `EXA_API_KEY` · `MARKET_PLACE` | solo el catálogo sembrado |
 | registro | `AMBIGUOUS_API_KEY` · `AMBIGUOUS_MCP_URL` | no queda huella en el workspace |
 | correo | `MAIL_API_KEY` · `MAIL_FROM` | el enlace sale en pantalla |
+| dominio | `PUBLIC_URL` | los enlaces del correo apuntan a localhost |
 | cadena | `BASE_SEPOLIA_RPC` · `DEPOSITS_FROM_BLOCK` · `WALLETS_FILE` | el hash existe, sin anclar |
 | servidor | `PORT` · `PUBLIC_URL` · `APPROVAL_SECRET` · `APPROVAL_TTL_MS` · `DB_PATH` | usa los valores por defecto |
 | operación | `CONTROL_TOKEN` | **los controles quedan abiertos**: cualquiera aprueba |
