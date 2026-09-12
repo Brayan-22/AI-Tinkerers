@@ -11,6 +11,9 @@ export interface Listing {
   seller: string; owner: string; item: string; leadDays: number; minPrice: number;
   lat: number | null; lon: number | null; city: string | null; country: string | null;
   deals: number; violations: number;
+  source: 'telegram' | 'exa' | 'demo' | null;  // de dónde salió este proveedor
+  url: string | null;
+  telegram: string | null;
 }
 export interface Quote { seller: string; owner?: string; price: number; leadDays: number; reason?: string; }
 export interface Awarded { seller: string; price: number; leadDays: number; total: number; }

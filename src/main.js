@@ -76,13 +76,19 @@ const SEMILLA = [
   { name: 'PACK-MIA', owner: 'Miami Packaging', city: 'Miami', country: 'US', lat: 25.761, lon: -80.191, item: 'cajas de cartón', leadDays: 5, minPrice: 95 },
 ];
 
+// Utilería, apagada por defecto. Un mercado de verdad empieza vacío: los
+// proveedores son los que se registraron. Con CATALOGO_DEMO=1 entran estos
+// nueve inventados, marcados como demo en el catálogo y en la pantalla, para
+// poder enseñar el flujo sin depender de que alguien esté del otro lado.
 function sembrar() {
+  if (!env('CATALOGO_DEMO', '')) return;
   if (store.catalog().length) return;
   for (const s of SEMILLA) {
     store.recordAgent(s.name, s.owner);
     store.placeAgent(s.name, s);
-    store.listSupply(s.name, s);
+    store.listSupply(s.name, { ...s, source: 'demo' });
   }
+  console.log(`   catálogo: ${SEMILLA.length} proveedores de utilería (CATALOGO_DEMO=1)`);
 }
 sembrar();
 

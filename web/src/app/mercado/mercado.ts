@@ -29,7 +29,10 @@ import { Mapa } from './mapa';
         <tr><th>proveedor</th><th>dónde</th><th>desde</th><th>entrega</th><th>tratos</th></tr>
         @for (p of market.found(); track p.seller) {
           <tr>
-            <td>{{ p.owner }} <small>{{ p.seller }}</small></td>
+            <td>
+              {{ p.owner }} <small>{{ p.seller }}</small>
+              <span class="origen {{ p.source ?? 'demo' }}">{{ origen(p.source) }}</span>
+            </td>
             <td>{{ p.city }}@if (p.country) { , {{ p.country }} }</td>
             <td>\${{ p.minPrice }}</td>
             <td>{{ p.leadDays }} días</td>
@@ -122,6 +125,11 @@ import { Mapa } from './mapa';
     tr.fuera td { color: var(--mute); text-decoration: line-through; }
     tr.fuera td:last-child { text-decoration: none; }
     .mal { color: var(--red); }
+    .origen { display: inline-block; font-size: 9px; letter-spacing: .08em; text-transform: uppercase;
+      padding: 1px 5px; border-radius: 2px; border: 1px solid currentColor; margin-left: 6px; vertical-align: 1px; }
+    .origen.telegram { color: var(--green); }
+    .origen.exa { color: var(--blue); }
+    .origen.demo { color: var(--mute); }
     .form { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
     @media (max-width: 700px) { .form { grid-template-columns: 1fr; } }
     label { font-size: 11px; color: var(--mute); display: grid; gap: 4px; }
@@ -167,6 +175,13 @@ export class Mercado {
   constructor() {
     this.market.connect();
     this.market.cargarCatalogo();
+  }
+
+  // De dónde sale cada proveedor. Lo que no es una persona real lo dice.
+  origen(source?: string | null) {
+    if (source === 'telegram') return 'persona real';
+    if (source === 'exa') return 'hallado en la web · simulado';
+    return 'utilería';
   }
 
   buscar() { this.market.buscar(this.item()); }
