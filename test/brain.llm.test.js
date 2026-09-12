@@ -142,3 +142,18 @@ test('llm: no se rechaza una oferta que cubre el piso del propio vendedor', asyn
   const r = await brain({ name: 'S', role: 'seller', qty: 100, minPrice: 41 }, { round: 1, bestOffer: { id: 'of-1', price: 44, qty: 100 } });
   assert.equal(r.action.type, 'accept', 'el modelo no puede tumbar la adjudicación');
 });
+
+test('llm: no se acepta un trato que no existe, ni se oferta sin fondos', async () => {
+  const brain = llmBrain(fallback, { key: 'x' });
+
+  globalThis.fetch = async () => ({ ok: true, json: async () => ({ choices: [{ message: { content: '{"text":"acepto","reason":"x","action":{"type":"accept","offerId":"of-inventado"}}' } }] }) });
+  const sinLibro = await brain({ name: 'S', role: 'seller', qty: 100, minPrice: 40 }, { round: 1 });
+  assert.equal(sinLibro.text, 'respaldo', 'sin oferta firme no se acepta nada');
+
+  const conLibro = await brain({ name: 'S', role: 'seller', qty: 100, minPrice: 40 }, { round: 1, bestOffer: { id: 'of-7', price: 44, qty: 100 } });
+  assert.equal(conLibro.action.offerId, 'of-7', 'el id sale del libro, no del modelo');
+
+  globalThis.fetch = async () => ({ ok: true, json: async () => ({ choices: [{ message: { content: '{"text":"te doy $40","reason":"x","action":{"type":"offer","price":40,"qty":100}}' } }] }) });
+  const sinFondos = await brain({ name: 'B', role: 'buyer', qty: 100, maxPrice: 60, budget: 0 }, { round: 1 });
+  assert.equal(sinFondos.text, 'respaldo', 'ofertar con saldo cero lo haría expulsar');
+});

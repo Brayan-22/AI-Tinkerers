@@ -163,7 +163,11 @@ export function slackChannel({
               ? `Ninguna de las ${ev.cotizadas} cotizaciones sirve. No cerré nada.`
               : `No tengo proveedores de *${ev.item}* en el catálogo. Que alguien se registre escribiéndole al bot de Telegram: \`/vendo ${ev.item}\``);
           case 'award_failed':
-            return decir(donde, `*${ev.seller}* se echó para atrás al final. No cerré nada.`);
+            return decir(donde, `*${ev.seller}* se echó para atrás al final. Sigo con el siguiente.`);
+          case 'sin_cierre':
+            return decir(donde, `Ninguno de los ${ev.intentos} cerró el trato. La mejor que conseguí es `
+              + `*${ev.mejor.owner ?? ev.mejor.seller}*: ${plata(ev.mejor.price)} la unidad, entrega en ${ev.mejor.leadDays} días. `
+              + `Queda sin firmar, pero ahí la tienes.`);
           case 'awarded':
             return decir(donde, `🤝 Adjudicado a *${ev.seller}*: ${plata(ev.price)} × ${ev.leadDays} días = *${plata(ev.total)}*`);
           case 'notarized':

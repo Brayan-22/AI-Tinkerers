@@ -59,14 +59,23 @@ export class Rfq {
       return true;
     });
 
-    const ganadora = mejorCotizacion(viables);
-    if (!ganadora) {
+    const ordenadas = [...viables].sort((a, b) => a.price - b.price || a.leadDays - b.leadDays);
+    if (!ordenadas.length) {
       this.#emit('rfq_empty', { cotizadas: quotes.length, descartadas });
       return { deal: null, quotes, descartadas, winner: null };
     }
 
-    const deal = await this.#adjudicar(ganadora, viables.length);
-    return { deal, quotes, descartadas, winner: ganadora };
+    // Si el primero se echa para atrás, se intenta con el siguiente. Nadie se
+    // queda sin respuesta porque un proveedor se arrepintió.
+    for (const candidata of ordenadas) {
+      const deal = await this.#adjudicar(candidata, ordenadas.length);
+      if (deal) return { deal, quotes, descartadas, winner: candidata };
+    }
+
+    // Ninguno cerró: al menos se entrega la mejor que se consiguió, para que
+    // el comprador decida por fuera en vez de quedarse con las manos vacías.
+    this.#emit('sin_cierre', { mejor: ordenadas[0], intentos: ordenadas.length });
+    return { deal: null, quotes, descartadas, winner: ordenadas[0] };
   }
 
   // Fase 1: preguntar. Nadie compromete plata todavía.
