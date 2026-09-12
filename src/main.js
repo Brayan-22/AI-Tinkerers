@@ -82,7 +82,8 @@ const SEMILLA = [
 // poder enseñar el flujo sin depender de que alguien esté del otro lado.
 function sembrar() {
   if (!env('CATALOGO_DEMO', '')) return;
-  if (store.catalog().length) return;
+  // listSupply es un upsert, así que repetir la siembra no duplica nada. No se
+  // salta porque ya haya proveedores reales: convivir es justo el punto.
   for (const s of SEMILLA) {
     store.recordAgent(s.name, s.owner);
     store.placeAgent(s.name, s);

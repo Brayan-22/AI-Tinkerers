@@ -9,6 +9,10 @@ import { Listing } from '../market';
   template: '<div class="lienzo" #lienzo></div>',
   styles: `
     .lienzo { height: 340px; border: 1px solid var(--line); border-radius: 6px; background: #11161f; }
+    /* El mapa de OSM es claro; esto lo vuelve oscuro sin necesitar otra fuente. */
+    .lienzo ::ng-deep .leaflet-tile-pane { filter: invert(1) hue-rotate(180deg) brightness(.85) contrast(.9); }
+    .lienzo ::ng-deep .leaflet-control-attribution { background: rgba(0,0,0,.5); color: var(--mute); }
+    .lienzo ::ng-deep .leaflet-control-attribution a { color: var(--mute); }
     @media (max-width: 700px) { .lienzo { height: 240px; } }
   `,
 })
@@ -24,8 +28,10 @@ export class Mapa {
   constructor() {
     afterNextRender(() => {
       this.mapa = L.map(this.lienzo().nativeElement, { worldCopyJump: true }).setView([8, -60], 2);
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', {
-        maxZoom: 12, attribution: '© OpenStreetMap · © CARTO',
+      // OpenStreetMap directo: no pide llave. Se oscurece por CSS para que
+      // encaje con la página, en vez de depender de un basemap con cuenta.
+      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 12, attribution: '© OpenStreetMap',
       }).addTo(this.mapa);
       this.capa = L.layerGroup().addTo(this.mapa);
       this.pintar();
