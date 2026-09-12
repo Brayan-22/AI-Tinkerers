@@ -105,6 +105,25 @@ El agente lo convierte en cotización, adjudica, firma por las dos partes y te
 sirve el contrato. El lector de respuestas funciona sin llave de modelo: tiene
 sus propias pruebas y entiende «1.200», «$950 c/u», «mañana» y «el jueves».
 
+### Conectar Slack en tres minutos
+
+La app se crea desde un manifiesto, así no hay que ir pantalla por pantalla:
+
+1. En [api.slack.com/apps](https://api.slack.com/apps): *Create New App → From
+   an app manifest*, elige el workspace y pega `deploy/slack-app-manifest.yml`.
+   Trae scopes, eventos, Socket Mode e Interactividad ya configurados.
+2. *Basic Information → App-Level Tokens → Generate*, con el scope
+   `connections:write`. Ese es `SLACK_APP_TOKEN` (`xapp-…`).
+3. *Install App → Install to Workspace*. El *Bot User OAuth Token* es
+   `SLACK_BOT_TOKEN` (`xoxb-…`).
+4. En el canal donde se compra: `/invite @Mercadia`.
+5. `npm run slack:check` valida los dos tokens y el socket sin arrancar nada;
+   con el ID del canal como argumento, además publica un mensaje de prueba.
+
+Después, `npm run dev` y en el canal: `@Mercadia necesito 200 botellas de agua
+para el viernes, máximo $1.500`. Sin Interactividad los botones de autorizar se
+ven pero no responden: es el paso que más se olvida, y el manifiesto lo trae.
+
 ### Qué necesitas según lo que quieras mostrar
 
 | camino | llaves | qué se ve |

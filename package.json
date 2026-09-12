@@ -14,7 +14,8 @@
     "stack:down": "docker stack rm mercadia",
     "stack:logs": "docker service logs -f mercadia_app",
     "ambiguous:tools": "node --env-file-if-exists=.env scripts/ambiguous-tools.js",
-    "estado": "node --env-file-if-exists=.env scripts/estado.js"
+    "estado": "node --env-file-if-exists=.env scripts/estado.js",
+    "slack:check": "node --env-file-if-exists=.env scripts/slack-check.js"
   },
   "keywords": [],
   "author": "",
