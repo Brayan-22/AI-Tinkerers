@@ -465,6 +465,16 @@ async function mensajeDeTelegram(texto, quien) {
   // /vendo, /vender, /venta o simplemente "vendo …": lo que la gente escribe.
   const m = t.match(/^\/?(?:vendo|vender|venta|ofrezco)\s+(.+?)(?:\s+en\s+([^,.]+))?\s*$/i);
   if (!m) {
+    // A un proveedor ya registrado no se le contesta "dime qué vendes": está
+    // hablando de un negocio, no dándose de alta. Esto pasa cuando sigue
+    // escribiendo después de que la ronda de cotización ya cerró.
+    const mias = store.listingsOf(name);
+    if (mias.length) {
+      return telegram.decir(quien.chat,
+        `Gracias. Ya tengo tu cotización y sigo comparando; si ganas te llega el contrato firmado.\n\n`
+        + `_Cuando alguien pida ${mias.map((x) => `*${x.item}*`).join(' o ')} te escribo por acá._\n`
+        + `/mis para ver lo tuyo · /ayuda para el resumen`);
+    }
     return telegram.decir(quien.chat,
       'No te entendí. Dime qué vendes así:\n`/vendo computadores`\n\n/ayuda si quieres el resumen completo.');
   }
