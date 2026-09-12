@@ -27,7 +27,20 @@ import { incomingTransfers, withdraw, anchor } from './adapters/chain.base-sepol
 const PORT = env('PORT', 3000);
 const WEB = env('WEB_DIR', new URL('../web/dist/web/browser', import.meta.url).pathname);
 const BASE = env('PUBLIC_URL', `http://localhost:${PORT}`);
-const PRESUPUESTO_DEMO = 50000; // al que no depositó, el mercado le presta para probar
+// Al que no depositó, el mercado le presta para probar. Generoso a propósito:
+// en una compra de demostración el control es el botón de aprobar, no un
+// presupuesto de juguete que descarta cotizaciones legítimas.
+const PRESUPUESTO_DEMO = 1e9;
+const comprasActivas = new Map(); // canal -> qué está cotizando ahora mismo
+
+// Lo que alguien escribe no siempre es un pedido. "Sí encontraste algo" no es
+// una orden de compra, y abrir una cotización por cada mensaje es ruido.
+const pedidoUtil = (item) => {
+  const t = String(item ?? '').trim();
+  return t.length >= 3
+    && !/^[\d.,\s$]+$/.test(t)
+    && !/^(qué|que|lo)\s|producto|art[íi]culo|no s[ée]/i.test(t);
+};
 
 const store = openStore();
 const remote = remoteAgents();
@@ -462,9 +475,18 @@ async function mensajeDeTelegram(texto, quien) {
 const slack = slackChannel({ onEvent: publish, onDemand: pedidoDeSlack });
 
 async function pedidoDeSlack(texto, donde) {
+  // Una compra a la vez por conversación. Si no, cada mensaje del hilo abre
+  // otra cotización y al proveedor le llegan tres mensajes por lo mismo.
+  const enCurso = comprasActivas.get(donde.channel);
+  if (enCurso) {
+    return slack.decir(donde, `Voy en eso: estoy cotizando *${enCurso}* con varios proveedores. Te aviso apenas tenga la mejor.`);
+  }
+
   const pedido = await extraerPedido(texto);
-  if (!pedido.item) {
-    return slack.decir(donde, 'No entendí qué necesitas. Escríbelo así: *necesito 200 botellas de agua para el viernes, máximo $1.500 c/u*');
+  if (!pedidoUtil(pedido.item)) {
+    return slack.decir(donde,
+      'No entendí qué necesitas comprar. Dímelo así:\n'
+      + '_necesito 12 sillas de oficina para el viernes, máximo $200.000 cada una_');
   }
 
   const perfil = (await slack.quienEs(donde.user).catch(() => null)) ?? {};
@@ -474,11 +496,15 @@ async function pedidoDeSlack(texto, donde) {
 
   // Contexto del canal: lo que aquí ya se compró antes.
   const ultima = store.lastDealIn(donde.channel, pedido.item);
-  const techo = pedido.maxPrice ?? (ultima ? Math.round(ultima.price * 1.15) : 1e6);
+  // Si no dijo techo y no hay historial, no se inventa uno: sin techo, y el
+  // humano decide con el botón. Inventarlo y luego descartar por él es peor.
+  const techo = pedido.maxPrice ?? (ultima ? Math.round(ultima.price * 1.15) : null);
 
   await slack.decir(donde,
     `Entendido: *${pedido.qty} × ${pedido.item}*, entrega en ${pedido.maxLeadDays} días, `
-    + `techo $${techo.toLocaleString('es-CO')} por unidad${pedido.maxPrice ? '' : ' (estimado)'}.`
+    + (techo
+      ? `techo $${techo.toLocaleString('es-CO')} por unidad${pedido.maxPrice ? '' : ' (estimado de tu última compra)'}.`
+      : 'sin techo de precio: te traigo la mejor y decides tú.')
     + (ultima ? `
 _La última vez este canal pagó $${ultima.price.toLocaleString('es-CO')} a ${ultima.seller}._` : '')
     + `
@@ -495,11 +521,14 @@ Voy a cotizar con varios proveedores y vuelvo con el mejor.`);
     brain: pensando(askBrain),
   };
   store.recordAgent(buyer, quien);
+  comprasActivas.set(donde.channel, pedido.item);
 
   comprar(id, demand, saldo !== null, {
     sink: slack.reporte(donde),
     approve: (req) => slack.approve(req, donde),
-  }).catch((e) => slack.decir(donde, `Se me cayó la compra: ${e.message}`));
+  })
+    .catch((e) => slack.decir(donde, `Se me cayó la compra: ${e.message}`))
+    .finally(() => comprasActivas.delete(donde.channel));
 }
 
 // ── La arena (el coliseo del guardián) ─────────────────────────────────────

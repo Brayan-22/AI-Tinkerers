@@ -36,9 +36,11 @@ export class Rfq {
 
   #descarte(q) {
     const { qty, maxPrice, maxLeadDays, budget } = this.demand;
-    if (q.leadDays > maxLeadDays) return `plazo de ${q.leadDays} días y el tope es ${maxLeadDays}`;
-    if (q.price > maxPrice) return `$${q.price} por unidad y el techo es $${maxPrice}`;
-    if (q.price * qty > budget) return `$${q.price * qty} no cabe en el presupuesto de $${budget}`;
+    // Un límite que el comprador no puso no descarta a nadie. Inventar un techo
+    // y después rechazar por él es peor que no tener techo.
+    if (maxLeadDays != null && q.leadDays > maxLeadDays) return `plazo de ${q.leadDays} días y el tope es ${maxLeadDays}`;
+    if (maxPrice != null && q.price > maxPrice) return `$${q.price} por unidad y el techo es $${maxPrice}`;
+    if (budget != null && q.price * qty > budget) return `$${q.price * qty} no cabe en el presupuesto de $${budget}`;
     return null;
   }
 
