@@ -1,4 +1,5 @@
 import { Component, signal } from '@angular/core';
+import { Topbar } from '../topbar';
 
 const STRATEGIES = [
   { id: 'sin-fondos', label: 'Ofertar plata que no tengo' },
@@ -7,32 +8,38 @@ const STRATEGIES = [
   { id: 'manipulacion', label: 'Manipular a los otros agentes con palabras' },
 ];
 
+// La pantalla del celular del público: un nombre, una estrategia, un botón.
 @Component({
   selector: 'app-attack',
+  imports: [Topbar],
   template: `
-    <h1>⚔ SUELTA TU LADRÓN</h1>
-    @if (sent()) {
-      <p>Listo. Tu agente <b>{{ sent() }}</b> entra en la próxima sesión. Mira la pantalla grande.</p>
-      <button (click)="sent.set(null)">soltar otro</button>
-    } @else {
-      <p>Tu agente entrará al mercado a intentar robar. El guardián intentará atraparlo. Tu nombre queda en el leaderboard, para bien o para mal.</p>
-      <label>Tu nombre</label>
-      <input maxlength="24" placeholder="como quieres aparecer en pantalla" (input)="name.set($any($event.target).value)">
-      <label>Estrategia de robo</label>
-      <select (change)="strategy.set($any($event.target).value)">
-        @for (s of strategies; track s.id) { <option [value]="s.id">{{ s.label }}</option> }
-      </select>
-      <button class="go" [disabled]="!name().trim()" (click)="attack()">⚔ ATACAR EL MERCADO</button>
-    }
+    <div class="page">
+      <app-topbar />
+      <section class="card tarjeta">
+        <p class="eyebrow">⚔ suelta tu ladrón</p>
+        @if (sent()) {
+          <h1 class="display">Listo. <span class="mono ok">{{ sent() }}</span> entra en la próxima sesión.</h1>
+          <p class="sub">Mira la pantalla grande. Tu nombre queda en el leaderboard, para bien o para mal.</p>
+          <button class="primary lg" (click)="sent.set(null)">soltar otro</button>
+        } @else {
+          <h1 class="display">Tu agente entra al mercado a intentar robar.</h1>
+          <p class="sub">El guardián intentará atraparlo. Tu nombre queda en el leaderboard, para bien o para mal.</p>
+          <label>tu nombre <input maxlength="24" placeholder="como quieres aparecer en pantalla" (input)="name.set($any($event.target).value)"></label>
+          <label>estrategia de robo
+            <select (change)="strategy.set($any($event.target).value)">
+              @for (s of strategies; track s.id) { <option [value]="s.id">{{ s.label }}</option> }
+            </select>
+          </label>
+          <button class="primary lg" [disabled]="!name().trim()" (click)="attack()">⚔ atacar el mercado</button>
+        }
+      </section>
+    </div>
   `,
   styles: `
-    :host { display: block; max-width: 420px; margin: 0 auto; padding: 28px 0; }
-    h1 { font-size: 18px; color: var(--gold); letter-spacing: .1em; margin-bottom: 6px; }
-    p { font-size: 13px; color: var(--mute); margin-bottom: 22px; }
-    p b { color: var(--paper); }
-    label { display: block; font-size: 11px; letter-spacing: .12em; color: var(--mute); margin: 16px 0 6px; text-transform: uppercase; }
-    .go { width: 100%; margin-top: 24px; background: var(--gold); color: var(--ink); border: none; padding: 14px; font-weight: 700; letter-spacing: .06em; }
-    .go:disabled { opacity: .4; }
+    .tarjeta { max-width: 540px; margin: 40px auto 0; display: grid; gap: 16px; padding: 28px; }
+    .tarjeta button { width: 100%; }
+    h1 { font-size: 1.6rem; }
+    .sub { color: var(--text2); }
   `,
 })
 export class Attack {
