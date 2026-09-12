@@ -27,3 +27,13 @@ test('secretos: un archivo que no existe no rompe nada', () => {
   delete process.env.FALTANTE_FILE;
   delete process.env.FALTANTE;
 });
+
+test('secretos: una variable vacía cuenta como ausente', () => {
+  process.env.VACIA = '';
+  assert.equal(secret('VACIA', 'respaldo'), 'respaldo', 'X= en .env no debe ganarle al respaldo');
+  process.env.VACIA = '   ';
+  assert.equal(secret('VACIA', 'respaldo'), 'respaldo', 'solo espacios tampoco cuenta');
+  process.env.VACIA = '  real  ';
+  assert.equal(secret('VACIA'), 'real', 'y el valor de verdad viene recortado');
+  delete process.env.VACIA;
+});
