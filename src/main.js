@@ -357,6 +357,7 @@ async function comprar(id, demand, funded, canal = {}) {
     sheet: deal.sheet, anchor: acta, quotes,
     buyerOwner: demand.owner, sellerOwner: proveedor?.owner,
     custody: { [deal.buyer]: notary.custodyOf(deal.buyer), [deal.seller]: notary.custodyOf(deal.seller) },
+    base: BASE,
   });
   store.saveContract(deal.id, documento, deal.sheet);
   const url = `${BASE}/api/contract/${deal.id}`;
