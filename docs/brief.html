@@ -395,6 +395,7 @@
           <tr><td>Proveedor humano cotiza y cierra por chat</td><td><span class="chip duda">probado en unidad</span></td><td>Compite contra un agente simulado y gana, con las dos firmas</td></tr>
           <tr><td>Slack como superficie del comprador</td><td><span class="chip duda">sin correr</span></td><td>Escrito y probado por partes. Nunca habló con un workspace</td></tr>
           <tr><td>Telegram como canal del proveedor</td><td><span class="chip duda">sin correr</span></td><td>Escrito. Nunca habló con un bot real</td></tr>
+          <tr><td>Ambiguous AI como sistema de registro (MCP)</td><td><span class="chip duda">sin correr</span></td><td>Cliente MCP y espejos escritos y probados con servidor falso. Nunca habló con el servidor real</td></tr>
           <tr><td>Geovisor y pantalla web</td><td><span class="chip duda">sin compilar</span></td><td>El front nunca se compiló</td></tr>
           <tr><td>Imagen de Docker y despliegue en swarm</td><td><span class="chip duda">sin construir</span></td><td>Los archivos están validados con el esquema, no con un build</td></tr>
           <tr><td>Escribirle a un proveedor que Exa encontró</td><td><span class="chip no">no existe</span></td><td>Queda en el mapa; su negociación la juega un agente marcado como simulado</td></tr>
@@ -440,12 +441,32 @@
           <tr><td><strong>Slack</strong></td><td>el comprador y su equipo</td><td>pide en lenguaje natural, aprueba con un botón</td></tr>
           <tr><td><strong>Telegram</strong></td><td>cada proveedor, en su celular</td><td>contesta precio y plazo en texto libre</td></tr>
           <tr><td><strong>Correo</strong></td><td>el dueño del presupuesto</td><td>autoriza por enlace firmado y recibe el contrato</td></tr>
+          <tr><td><strong>Ambiguous AI</strong></td><td>el agente, como colega con credenciales</td><td>deja el rastro de cada compra: cotizaciones, CRM, contrato a firma</td></tr>
           <tr><td><strong>Web</strong></td><td>quien quiera mirar</td><td>geovisor y la negociación en vivo</td></tr>
           <tr><td><strong>A2A</strong></td><td>otros agentes</td><td>Agent Card en <code>/.well-known/</code> para descubrir y conectarse</td></tr>
         </tbody>
       </table>
     </div>
     <p>El puerto de aprobación del dominio es el mismo en los tres canales humanos. Empezó siendo un correo y después fue un botón de Slack. El dominio nunca se enteró del cambio: eso es lo que paga la arquitectura hexagonal.</p>
+  </section>
+
+  <section>
+    <h2>Cómo usamos Ambiguous AI</h2>
+    <p>Ambiguous no reemplaza el canal del comprador: la persona sigue pidiendo donde ya trabaja. Lo que hace es que el agente tenga un <strong>sistema de registro</strong> propio, y que cada compra deje rastro ahí sin que nadie lo copie a mano. Se conecta por MCP a <code>https://app.ambiguous.ai/mcp</code> con Bearer.</p>
+    <div class="marco">
+      <table>
+        <thead><tr><th>Momento de la compra</th><th>Namespace</th><th>Qué queda en el workspace</th></tr></thead>
+        <tbody>
+          <tr><td>cada cotización recibida</td><td><code>sheets.*</code></td><td>una fila con proveedor, precio, plazo y la razón</td></tr>
+          <tr><td>cada descarte</td><td><code>sheets.*</code></td><td>la misma fila, marcada descartada, con el motivo</td></tr>
+          <tr><td>adjudicación</td><td><code>crm.*</code></td><td>el proveedor con lo que se le pagó y cuándo</td></tr>
+          <tr><td>contrato</td><td><code>sign.*</code></td><td>el documento a firma de comprador y proveedor</td></tr>
+          <tr><td>contrato</td><td><code>mail.*</code></td><td>la copia enviada desde la bandeja del agente</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>Los nombres exactos de las herramientas no están documentados, así que el adaptador los descubre en <code>tools/list</code> y apaga el espejo que no encuentre pareja. <code>npm run ambiguous:tools</code> imprime la lista real y cuáles resolvieron. Nada de esto está en el camino crítico: si Ambiguous falla, la compra cierra igual y el error queda en el log.</p>
+    <p><strong>El proveedor no va en Ambiguous.</strong> Sigue en su celular. Si las dos partes quedaran dentro del mismo workspace, la asimetría desaparece, y la asimetría es el proyecto.</p>
   </section>
 
   <section>
@@ -459,6 +480,18 @@
       <li><b>1:55 – 2:00 · Cierre</b> <span>«Mercadia vive donde ustedes ya trabajan».</span></li>
     </ol>
     <p>Antes de grabar: los tres proveedores hacen <code>/start</code> al bot, porque Telegram no puede escribir primero. Se graba un respaldo completo antes de la toma final. Y nunca se finge una acción: lo que no corre se declara como no corrido.</p>
+  </section>
+
+  <section>
+    <h2>Cómo se corre</h2>
+    <p>Todas las llaves viven en un solo archivo. <code>.env.example</code> trae cada una comentada con dónde sacarla y qué se apaga si falta, y los scripts la cargan solos.</p>
+    <ol class="pasos">
+      <li><b>npm install</b> <span>y <code>cp .env.example .env</code>.</span></li>
+      <li><b>npm run estado</b> <span>imprime qué canales quedaron prendidos, si hay wallets y si el front está compilado, con un veredicto al final.</span></li>
+      <li><b>npm run dev</b> <span>levanta el backend. El front va aparte con <code>npm --prefix web install</code> y <code>npm run web</code>.</span></li>
+    </ol>
+    <p>Sin ninguna llave nada se rompe: cada pieza que falta se apaga sola y el mercado sigue cerrando tratos. Las 82 pruebas corren sin necesitar credenciales. En un contenedor es <code>docker compose up --build</code> con el mismo archivo.</p>
+    <p><strong>Antes de cualquier demo con proveedores humanos:</strong> cada uno le manda <code>/start</code> al bot. Un bot no puede escribir primero, y sin ese paso no le llega el mensaje a nadie.</p>
   </section>
 
   <section>
@@ -492,6 +525,7 @@
   <section>
     <h2>Para el portal y el post</h2>
     <p><strong>Descripción.</strong> Un chatbox es un humano y un modelo. Mercadia toma una línea en Slack y la convierte en negociaciones simultáneas con personas reales en su celular, que no instalan nada ni cambian cómo trabajan. El canal solo ve el resultado y un botón. El modelo negocia; un guardián determinista decide si se mueve la plata.</p>
+    <p><strong>Para el revisor del sponsor:</strong> la sección «Cómo usamos Ambiguous AI» de arriba tiene la lista literal de namespaces y qué deja cada uno. No hay que adivinar nada.</p>
     <p><strong>Post.</strong> Construimos Mercadia en #AgentsEverywhere con @AITinkerers Bogotá: pides en Slack, el agente negocia con proveedores reales por Telegram, compara, descarta con razones y cierra con dos firmas. Cerebro con @OpenAI y respaldo en @OpenRouter, proveedores y precio de referencia con @Exa. Gracias a @CopilotKit por el impulso a sacar los agentes del chatbox.</p>
   </section>
 
