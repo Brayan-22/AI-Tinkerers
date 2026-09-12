@@ -60,7 +60,7 @@ npm run dev              # http://localhost:3000
 ```
 
 Sin llaves nada se rompe: cada pieza que falta se apaga sola y el mercado sigue
-cerrando tratos. `npm test` corre 91 pruebas sin necesitar credenciales.
+cerrando tratos. `npm test` corre 94 pruebas sin necesitar credenciales.
 
 ## Con qué está hecho
 

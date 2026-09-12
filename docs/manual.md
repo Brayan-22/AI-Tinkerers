@@ -21,7 +21,7 @@ declarada · motor de cotizaciones en paralelo (RFQ) · catálogo, geolocalizaci
 y descubrimiento con Exa · autorización con timeout por correo y por Slack ·
 contrato HTML · adaptador de Slack (socket mode) · adaptador de Telegram y
 proveedor humano · cerebros con modelo (OpenAI → OpenRouter → determinista) ·
-tarjeta A2A · front Angular · Docker y stack · 91 pruebas.
+tarjeta A2A · front Angular · Docker y stack · 94 pruebas.
 
 Más del ochenta por ciento del código es de hoy, y lo que sobrevive de agosto
 quedó reescrito al moverlo al hexágono. El motor previo se declara como
@@ -54,7 +54,7 @@ Todo junto en un contenedor, con el mismo `.env`:
 docker compose up --build      # → http://localhost:3000
 ```
 
-`npm test` corre las 91 pruebas sin necesitar ninguna llave.
+`npm test` corre las 94 pruebas sin necesitar ninguna llave.
 
 ### Probar la idea en cinco minutos, con un solo token
 
