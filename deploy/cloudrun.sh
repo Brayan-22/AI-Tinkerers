@@ -26,9 +26,18 @@ g services enable run.googleapis.com cloudbuild.googleapis.com secretmanager.goo
 # vacías se omiten, y esa pieza simplemente queda apagada en producción.
 echo "▸ secretos desde .env"
 [ -f .env ] || { echo "falta .env — corre: cp .env.example .env"; exit 1; }
+# La URL va a ser pública: sin token de operación cualquiera aprueba una compra
+# que no es suya. Se genera uno si no está puesto.
+if ! grep -qE "^CONTROL_TOKEN=.+" .env; then
+  NUEVO="$(openssl rand -hex 16)"
+  printf '\nCONTROL_TOKEN=%s\n' "$NUEVO" >> .env
+  echo "   ! generé CONTROL_TOKEN y lo guardé en .env"
+  echo "     la pantalla de operación entra por  <url>/arena?t=$NUEVO"
+fi
 SECRETOS=()
 for VAR in OPENAI_API_KEY OPENROUTER_API_KEY SLACK_APP_TOKEN SLACK_BOT_TOKEN \
-           TELEGRAM_BOT_TOKEN EXA_API_KEY AMBIGUOUS_API_KEY MAIL_API_KEY APPROVAL_SECRET; do
+           TELEGRAM_BOT_TOKEN EXA_API_KEY AMBIGUOUS_API_KEY MAIL_API_KEY \
+           APPROVAL_SECRET CONTROL_TOKEN; do
   VALOR="$(grep -E "^${VAR}=" .env | head -1 | cut -d= -f2- | tr -d '"'"'"' \r')"
   [ -n "$VALOR" ] || continue
   NOMBRE="$(echo "$VAR" | tr 'A-Z_' 'a-z-')"
@@ -68,6 +77,7 @@ g run services update "$SERVICIO" --region "$REGION" --update-env-vars "PUBLIC_U
 echo
 echo "  listo → $URL"
 echo "  salud → $URL/api/health"
+echo "  operar → $URL/arena?t=\$CONTROL_TOKEN  (el de tu .env)"
 echo
 echo "  La base en /tmp es efímera: el catálogo se siembra al arrancar, pero el"
 echo "  historial de precios del canal empieza de cero en cada reinicio. Para que"

@@ -11,6 +11,7 @@ import { remoteAgents } from './adapters/brain.remote.js';
 import { serveWeb } from './adapters/web.static.js';
 import { emailApprovals, mailer } from './adapters/approve.email.js';
 import { secret } from './adapters/secrets.js';
+import { controlGate } from './adapters/control.js';
 import { renderContract } from './adapters/contract.html.js';
 import { mockBrain, supplierBrain, askBrain } from './adapters/brain.mock.js';
 import { llmBrain, llmKey } from './adapters/brain.llm.js';
@@ -36,6 +37,8 @@ const labels = new Map(); // metadatos de pantalla de los atacantes
 const attackerQueue = [];
 const joinQueue = [];
 const busy = new Set(); // agentes con plata comprometida ahora mismo
+const mando = controlGate(); // quién puede arrancar la arena y aprobar compras
+const TOPE_COLA = 20; // la cola de atacantes no es infinita
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const paced = (brain) => async (agent, view) => { await sleep(900); return brain(agent, view); };
@@ -159,6 +162,9 @@ function api(req, res, url) {
       const sponsor = String(b?.nombre ?? '').slice(0, 24).trim() || 'anon';
       const strategy = STRATEGIES[b?.estrategia] ? b.estrategia : 'sin-fondos';
       const name = `LADRON-${slug(sponsor)}`;
+      // Frontera pública: una persona con un bucle no llena la cola para siempre.
+      if (attackerQueue.length >= TOPE_COLA) return json(res, { error: 'la cola está llena, espera un turno' }, 429);
+      if (attackerQueue.some((a) => a.name === name)) return json(res, { error: 'ya tienes un ladrón en cola' }, 429);
       labels.set(name, { sponsor, strategy, label: STRATEGIES[strategy].label, queued: true });
       store.recordAgent(name, sponsor);
       attackerQueue.push({ name, sponsor, strategy });
@@ -527,6 +533,9 @@ wss.on('connection', (ws) => {
     let msg;
     try { msg = JSON.parse(raw); } catch { return; }
 
+    // Los mandos exigen el token cuando CONTROL_TOKEN está puesto.
+    if (!mando.permite(msg)) return ws.send(JSON.stringify({ type: 'denied', reason: 'este control necesita el token de operación' }));
+
     if (msg.type === 'arena_start') arenaLoop(msg);
     if (msg.type === 'arena_stop') running = false;
     if (msg.type === 'exploit_demo') exploitNext = true;
@@ -606,6 +615,7 @@ wss.on('connection', (ws) => {
 server.listen(PORT, async () => {
   console.log(`mercadia → ${BASE}  |  agentes: ws ${BASE.replace('http', 'ws')}/ws`);
   console.log(`   modelo: ${llmKey() ? 'sí' : 'no (cerebros deterministas)'}  ·  exa: ${exaKey() ? 'sí' : 'no'}`);
+  console.log(`   controles: ${mando.exige ? 'con token (usa /arena?t=…)' : 'ABIERTOS (sin CONTROL_TOKEN: solo para local)'}`);
   if (ambiguous.activo()) {
     const r = await ambiguous.conectar();
     console.log(r.ok ? `   ambiguous: ${Object.values(r.tools).filter(Boolean).length}/4 espejos resueltos` : `   ambiguous: no conectó (${r.error})`);

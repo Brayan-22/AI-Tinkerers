@@ -417,6 +417,7 @@ sacarla y qué se apaga si falta. Los scripts la cargan solos
 | correo | `MAIL_API_KEY` · `MAIL_FROM` | el enlace sale en pantalla |
 | cadena | `BASE_SEPOLIA_RPC` · `DEPOSITS_FROM_BLOCK` · `WALLETS_FILE` | el hash existe, sin anclar |
 | servidor | `PORT` · `PUBLIC_URL` · `APPROVAL_SECRET` · `APPROVAL_TTL_MS` · `DB_PATH` | usa los valores por defecto |
+| operación | `CONTROL_TOKEN` | **los controles quedan abiertos**: cualquiera aprueba |
 
 En swarm los secretos entran como archivo: cualquiera de arriba acepta
 `VAR_FILE` apuntando a `/run/secrets/…`.

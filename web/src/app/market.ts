@@ -56,7 +56,13 @@ export class Market {
     };
   }
 
-  send(msg: unknown): void { this.socket?.send(JSON.stringify(msg)); }
+  // El token de operación viaja en la URL: /arena?t=EL_TOKEN. Va en cada
+  // mensaje porque el servidor solo lo exige en los mandos.
+  private readonly token = new URLSearchParams(location.search).get('t') ?? undefined;
+
+  send(msg: Record<string, unknown>): void {
+    this.socket?.send(JSON.stringify(this.token ? { ...msg, token: this.token } : msg));
+  }
 
   async cargarCatalogo(): Promise<void> {
     this.catalog.set(await fetch('/api/catalog').then((r) => r.json()));
@@ -94,6 +100,8 @@ export class Market {
 
     switch (ev.type) {
       case 'leaderboard': return this.board.set(ev.board);
+      case 'denied':
+        return this.say({ cls: 'sys bad', who: 'mercado', text: ev.reason });
 
       case 'rfq_open':
         this.rfqId.set(ev.rfq);
