@@ -10,7 +10,7 @@ import { walletNotary, signedBy } from './adapters/signer.wallet.js';
 import { remoteAgents } from './adapters/brain.remote.js';
 import { serveWeb } from './adapters/web.static.js';
 import { emailApprovals, mailer } from './adapters/approve.email.js';
-import { secret } from './adapters/secrets.js';
+import { secret, env } from './adapters/secrets.js';
 import { controlGate } from './adapters/control.js';
 import { renderContract } from './adapters/contract.html.js';
 import { mockBrain, supplierBrain, askBrain } from './adapters/brain.mock.js';
@@ -24,9 +24,9 @@ import { slackChannel } from './adapters/channel.slack.js';
 import { STRATEGIES, makeAttacker } from './adapters/brain.attackers.js';
 import { incomingTransfers, withdraw, anchor } from './adapters/chain.base-sepolia.js';
 
-const PORT = process.env.PORT ?? 3000;
-const WEB = process.env.WEB_DIR ?? new URL('../web/dist/web/browser', import.meta.url).pathname;
-const BASE = process.env.PUBLIC_URL ?? `http://localhost:${PORT}`;
+const PORT = env('PORT', 3000);
+const WEB = env('WEB_DIR', new URL('../web/dist/web/browser', import.meta.url).pathname);
+const BASE = env('PUBLIC_URL', `http://localhost:${PORT}`);
 const PRESUPUESTO_DEMO = 50000; // al que no depositó, el mercado le presta para probar
 
 const store = openStore();
@@ -443,7 +443,7 @@ Voy a cotizar con varios proveedores y vuelvo con el mejor.`);
     buyer, owner: quien, item: pedido.item, qty: pedido.qty,
     maxPrice: techo, maxLeadDays: pedido.maxLeadDays,
     budget: saldo ?? PRESUPUESTO_DEMO,
-    channel: donde.channel, place: process.env.MARKET_PLACE ?? 'Colombia',
+    channel: donde.channel, place: env('MARKET_PLACE', 'Colombia'),
     email: perfil.correo ?? undefined, // para mandarle la copia del contrato
     mode: 'supervised', // en un canal de trabajo, la compra se aprueba con un botón
     brain: pensando(askBrain),

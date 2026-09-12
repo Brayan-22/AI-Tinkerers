@@ -1,13 +1,14 @@
 // Espejo on-chain de la liquidación: USDC real en Base Sepolia.
 // El ledger manda; esto es la prueba pública verificable. Si las wallets no
 // tienen gas, falla suave y el mercado sigue (el error viaja en el evento).
+import { env } from './secrets.js';
 import { createPublicClient, createWalletClient, http, parseUnits, formatUnits, erc20Abi, parseAbiItem } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { baseSepolia } from 'viem/chains';
 import { wallets } from './wallets.js';
 
 const USDC = '0x036CbD53842c5426634e7929541eC2318f3dCF7e'; // USDC oficial (Circle) en Base Sepolia
-const RPC = process.env.BASE_SEPOLIA_RPC ?? 'https://sepolia.base.org';
+const RPC = env('BASE_SEPOLIA_RPC', 'https://sepolia.base.org');
 
 const TRANSFER = parseAbiItem('event Transfer(address indexed from, address indexed to, uint256 value)');
 const VENTANA = 5000n; // bloques por escaneo: los RPC públicos no dan rangos infinitos

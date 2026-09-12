@@ -12,7 +12,7 @@
 // pega, se ajusta el mapa de abajo en un minuto.
 import { readFileSync, existsSync } from 'node:fs';
 import { mcpClient } from './mcp.client.js';
-import { secret } from './secrets.js';
+import { secret, env } from './secrets.js';
 
 // El CLI (`npx ambiguous auth signup`) ya deja la llave en .ambi/config.json.
 // Se lee de ahí si no está en el entorno, para no copiarla a mano a dos sitios.
@@ -39,7 +39,7 @@ const HERRAMIENTAS = {
 // como documento del workspace. Las dos firmas criptográficas del acta viven
 // en el contrato que sirve Mercadia, no acá.
 
-export function ambiguousChannel({ token = secret('AMBIGUOUS_API_KEY') ?? llaveDelCli(), url = process.env.AMBIGUOUS_MCP_URL ?? 'https://app.ambiguous.ai/mcp', onEvent } = {}) {
+export function ambiguousChannel({ token = secret('AMBIGUOUS_API_KEY') ?? llaveDelCli(), url = env('AMBIGUOUS_MCP_URL', 'https://app.ambiguous.ai/mcp'), onEvent } = {}) {
   const activo = () => Boolean(token);
   let client = null;
   let herramientas = {};

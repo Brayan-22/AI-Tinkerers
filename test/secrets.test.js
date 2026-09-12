@@ -37,3 +37,14 @@ test('secretos: una variable vacía cuenta como ausente', () => {
   assert.equal(secret('VACIA'), 'real', 'y el valor de verdad viene recortado');
   delete process.env.VACIA;
 });
+
+import { env } from '../src/adapters/secrets.js';
+
+test('valores: una variable vacía no le gana al valor por defecto', () => {
+  process.env.URL_X = '';
+  assert.equal(env('URL_X', 'http://localhost:3000'), 'http://localhost:3000', 'PUBLIC_URL= vacío rompía los enlaces');
+  process.env.URL_X = 'https://mercadia.space';
+  assert.equal(env('URL_X', 'http://localhost:3000'), 'https://mercadia.space');
+  delete process.env.URL_X;
+  assert.equal(env('URL_X', 3000), 3000, 'y el defecto puede no ser texto');
+});

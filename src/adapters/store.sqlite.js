@@ -3,11 +3,12 @@
 // node:sqlite es stdlib en Node 22 — cero dependencias, un archivo, un volumen.
 // ponytail: un solo archivo SQLite. Migrar a Postgres cuando haya más de un
 // proceso escribiendo, no antes.
+import { env } from './secrets.js';
 import { DatabaseSync } from 'node:sqlite';
 import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 
-export function openStore(path = process.env.DB_PATH ?? './data/mercadia.db') {
+export function openStore(path = env('DB_PATH', './data/mercadia.db')) {
   if (path !== ':memory:') mkdirSync(dirname(path), { recursive: true });
   const db = new DatabaseSync(path);
   db.exec(`

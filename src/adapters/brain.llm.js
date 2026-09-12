@@ -8,21 +8,21 @@
 // Dos proveedores en cadena: OpenAI primero, OpenRouter si OpenAI falla, y el
 // cerebro determinista si fallan los dos. Misma API de chat en ambos, así que
 // la cadena es una lista y no dos códigos.
-import { secret } from './secrets.js';
+import { secret, env } from './secrets.js';
 
 const ACCIONES = ['quote', 'offer', 'accept', 'talk', 'reject', 'walk_away'];
-const MODELO = process.env.LLM_MODEL ?? 'openai/gpt-4o-mini';
+const MODELO = env('LLM_MODEL', 'openai/gpt-4o-mini');
 
 export function proveedores() {
   const lista = [
     {
       name: 'openai', key: secret('OPENAI_API_KEY'),
-      url: process.env.OPENAI_BASE_URL ?? 'https://api.openai.com/v1/chat/completions',
-      model: process.env.OPENAI_MODEL ?? 'gpt-4o-mini',
+      url: env('OPENAI_BASE_URL', 'https://api.openai.com/v1/chat/completions'),
+      model: env('OPENAI_MODEL', 'gpt-4o-mini'),
     },
     {
       name: 'openrouter', key: secret('OPENROUTER_API_KEY'),
-      url: process.env.LLM_BASE_URL ?? 'https://openrouter.ai/api/v1/chat/completions',
+      url: env('LLM_BASE_URL', 'https://openrouter.ai/api/v1/chat/completions'),
       model: MODELO,
     },
   ];

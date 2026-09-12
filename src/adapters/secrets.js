@@ -15,3 +15,9 @@ export function secret(name, fallback = undefined) {
   }
   return process.env[name]?.trim() || fallback;
 }
+
+// Lo mismo para valores que no son secretos: en un .env repartido en blanco,
+// `PUBLIC_URL=` vacío no puede ganarle al valor por defecto.
+export function env(name, fallback) {
+  return process.env[name]?.trim() || fallback;
+}
