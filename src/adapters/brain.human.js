@@ -7,7 +7,7 @@ import { extraerCotizacion } from './brain.llm.js';
 
 const SI = /\b(s[íi]|dale|listo|ok|okey|dele|hecho|dale pues|dalee|de acuerdo|cerramos|acepto|vale)\b/i;
 
-export function humanBrain(canal, chatId, { timeoutMs = 120_000, qty } = {}) {
+export function humanBrain(canal, chatId, { timeoutMs = 120_000, qty, comprador } = {}) {
   // Lo que esta persona cotizó, para no volver a preguntarle lo mismo.
   let cotizado = null;
 
@@ -38,7 +38,7 @@ export function humanBrain(canal, chatId, { timeoutMs = 120_000, qty } = {}) {
 
     const pregunta = view.lastQuote && view.round > 1
       ? `Tengo otras cotizaciones más bajas que $${view.lastQuote.price}. ¿Me lo mejoras y cerramos?`
-      : `Hola 👋 Necesito *${cantidad}* de *${view.item}*.\n¿A cómo la unidad y en cuántos días entregas?`;
+      : `Hola 👋 Soy el agente de compras de *${comprador ?? 'un cliente'}*. Necesito *${cantidad}* de *${view.item}*.\n¿A cómo la unidad y en cuántos días entregas?`;
 
     await canal.decir(chatId, pregunta);
     const respuesta = await canal.esperar(chatId, timeoutMs);

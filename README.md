@@ -4,7 +4,7 @@ Un comprador pide en el **Slack de su equipo**: "necesito 200 botellas de agua
 para el viernes, máximo $1.500". El agente le escribe a cada proveedor **a su
 propio celular por Telegram**, en texto libre, como le escribiría un comprador
 humano. El proveedor contesta "1.200 la unidad, te la mando el jueves" sin
-instalar nada y sin saber que del otro lado hay un agente.
+instalar nada y sin cambiar cómo trabaja.
 
 El agente convierte esa respuesta desordenada en una cotización estructurada,
 regatea una ronda, compara precio contra plazo, y vuelve al canal con la mejor
@@ -230,6 +230,31 @@ sin volver a molestarlo. Si le ofrecen menos, se le pregunta y él decide.
 Sin llave de modelo esto también funciona: hay un lector determinista de
 respuestas con sus propios tests.
 
+## Ambiguous AI como sistema de registro
+
+Ambiguous no reemplaza a Slack: la persona sigue pidiendo donde ya trabaja.
+Lo que hace es que cada compra deje huella en el espacio de trabajo del
+agente, por MCP (`https://app.ambiguous.ai/mcp`, Bearer):
+
+| momento | namespace | qué queda |
+| --- | --- | --- |
+| cada cotización y cada descarte | `sheets.*` | una fila en el libro de cotizaciones, con la razón |
+| adjudicación | `crm.*` | el proveedor con lo que se le pagó |
+| contrato | `sign.*` | el documento a firma de las dos partes |
+| contrato | `mail.*` | el correo con la copia |
+
+Los nombres exactos de las herramientas los publica el servidor; el adaptador
+los busca por patrón y apaga el espejo que no encuentre. Nada de esto está en
+el camino crítico: si Ambiguous falla, la compra cierra igual.
+
+```bash
+npx ambiguous auth signup --name "Mercadia" --human-email tu@correo.com
+AMBIGUOUS_API_KEY=… npm run ambiguous:tools     # la "llamada tonta": lista y espejos resueltos
+```
+
+**El proveedor no va en Ambiguous.** Sigue en Telegram, en su celular. Si las
+dos partes quedaran dentro del mismo workspace, la costura desaparece.
+
 ## Interoperabilidad (A2A)
 
 `GET /.well-known/agent-card.json` publica la Agent Card del mercado, con sus
@@ -311,4 +336,6 @@ SLACK_APP_TOKEN=     # xapp-… (App-Level Token con connections:write). Socket 
 SLACK_BOT_TOKEN=     # xoxb-… scopes: chat:write, app_mentions:read, im:history, users:read
 TELEGRAM_BOT_TOKEN=  # el bot que habla con los proveedores (BotFather)
 MARKET_PLACE=        # opcional, dónde buscar proveedores. Default Colombia
+AMBIGUOUS_API_KEY=   # opcional: sistema de registro por MCP (track Ambiguous AI)
+AMBIGUOUS_MCP_URL=   # opcional, default https://app.ambiguous.ai/mcp
 ```

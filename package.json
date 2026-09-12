@@ -12,7 +12,8 @@
     "image": "docker build -t mercadia:latest .",
     "stack:up": "docker stack deploy -c stack.yml mercadia",
     "stack:down": "docker stack rm mercadia",
-    "stack:logs": "docker service logs -f mercadia_app"
+    "stack:logs": "docker service logs -f mercadia_app",
+    "ambiguous:tools": "node scripts/ambiguous-tools.js"
   },
   "keywords": [],
   "author": "",

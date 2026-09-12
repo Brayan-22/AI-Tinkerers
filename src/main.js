@@ -16,6 +16,7 @@ import { mockBrain, supplierBrain, askBrain } from './adapters/brain.mock.js';
 import { llmBrain, llmKey } from './adapters/brain.llm.js';
 import { descubrir, exaKey, cityOf } from './adapters/discovery.exa.js';
 import { telegramChannel } from './adapters/channel.telegram.js';
+import { ambiguousChannel } from './adapters/channel.ambiguous.js';
 import { humanBrain } from './adapters/brain.human.js';
 import { extraerPedido } from './adapters/brain.llm.js';
 import { slackChannel } from './adapters/channel.slack.js';
@@ -277,7 +278,7 @@ async function comprar(id, demand, funded, canal = {}) {
     humano: Boolean(p.telegram),
     simulado: !p.telegram && p.source === 'exa' && !remote.has(p.seller),
     // El orden importa: una persona real manda sobre cualquier simulación.
-    brain: p.telegram ? humanBrain(telegram, p.telegram, { qty: demand.qty })
+    brain: p.telegram ? humanBrain(telegram, p.telegram, { qty: demand.qty, comprador: demand.owner })
       : remote.has(p.seller) ? remote.brain(p.seller)
         : pensando(supplierBrain),
   }));
@@ -295,6 +296,8 @@ async function comprar(id, demand, funded, canal = {}) {
   const reales = delCanal.length >= 3 ? delCanal : [...delCanal, ...store.closedPrices(50, demand.item)];
   const history = reales.length >= 3 ? reales : [...reales, ...(referencia?.prices ?? [])];
 
+  const espejoAmbiguous = ambiguous.activo() ? ambiguous.registro(demand) : null;
+
   const rfq = new Rfq({
     id, demand, suppliers, notary,
     // A una persona no se le manda tres mensajes seguidos.
@@ -305,7 +308,7 @@ async function comprar(id, demand, funded, canal = {}) {
       ?? (demand.mode === 'supervised'
         ? (req) => approvals.approve({ ...req, email: demand.email, owner: demand.owner })
         : undefined),
-    onEvent: (ev) => { publish(ev); canal.sink?.(ev); },
+    onEvent: (ev) => { publish(ev); canal.sink?.(ev); espejoAmbiguous?.(ev); },
   });
 
   const { deal, quotes } = await rfq.run();
@@ -395,6 +398,9 @@ async function mensajeDeTelegram(texto, quien) {
     `Listo, *${quien.name}*. Quedaste como proveedor de *${item}*${donde ? ` en ${donde.city}` : ''}.\n`
     + `Te escribo cuando alguien lo pida. Contesta con precio por unidad y en cuántos días entregas.`);
 }
+
+// ── Ambiguous: el sistema de registro del agente (no la superficie humana) ──
+const ambiguous = ambiguousChannel({ onEvent: publish });
 
 // ── Slack: el agente donde ya se compra ────────────────────────────────────
 const slack = slackChannel({ onEvent: publish, onDemand: pedidoDeSlack });
@@ -600,6 +606,12 @@ wss.on('connection', (ws) => {
 server.listen(PORT, async () => {
   console.log(`mercadia → ${BASE}  |  agentes: ws ${BASE.replace('http', 'ws')}/ws`);
   console.log(`   modelo: ${llmKey() ? 'sí' : 'no (cerebros deterministas)'}  ·  exa: ${exaKey() ? 'sí' : 'no'}`);
+  if (ambiguous.activo()) {
+    const r = await ambiguous.conectar();
+    console.log(r.ok ? `   ambiguous: ${Object.values(r.tools).filter(Boolean).length}/4 espejos resueltos` : `   ambiguous: no conectó (${r.error})`);
+  } else {
+    console.log('   ambiguous: apagado (falta AMBIGUOUS_API_KEY)');
+  }
   if (telegram.activo()) {
     const t = await telegram.escuchar();
     console.log(t.ok ? `   telegram: escuchando como @${t.bot}` : `   telegram: no conectó (${t.error})`);
