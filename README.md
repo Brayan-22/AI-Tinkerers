@@ -373,9 +373,14 @@ Tres banderas no son opcionales y están explicadas en el script:
 `--no-cpu-throttling` porque sin eso Cloud Run estrangula la CPU entre
 requests y el trabajo de fondo se muere.
 
-Dos cosas que salen gratis: `/api/health` ya existe para las sondas, y los
-secretos entran como **archivo** desde Secret Manager, porque cualquier
-variable acepta `VAR_FILE`. Cero cambios de código.
+El script es idempotente: habilita las APIs, sube a Secret Manager cada llave
+de tu `.env` que tenga valor, construye la imagen (con el build de Angular
+dentro) y fija `PUBLIC_URL` en una segunda pasada, porque la URL no se conoce
+hasta después del primer despliegue.
+
+`/api/health` ya existe para las sondas. Los secretos entran desde Secret
+Manager como variables; si prefieres montarlos como archivo, cualquier
+variable acepta `VAR_FILE` apuntando a la ruta montada.
 
 La base en `/tmp` es efímera. No rompe la demo, porque el catálogo se siembra
 al arrancar, pero el historial de precios del canal empieza de cero en cada
