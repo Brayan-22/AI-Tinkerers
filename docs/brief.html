@@ -350,7 +350,7 @@
   <div class="meta">
     <div><span class="campo">Equipo</span><span class="valor">Gludsito</span></div>
     <div><span class="campo">Entorno</span><span class="valor">Slack + Telegram</span></div>
-    <div><span class="campo">Pruebas</span><span class="valor">82 / 82</span></div>
+    <div><span class="campo">Pruebas</span><span class="valor">85 / 85</span></div>
     <div><span class="campo">Cadena</span><span class="valor">Base Sepolia</span></div>
   </div>
 
@@ -396,7 +396,8 @@
           <tr><td>Slack como superficie del comprador</td><td><span class="chip duda">sin correr</span></td><td>Escrito y probado por partes. Nunca habló con un workspace</td></tr>
           <tr><td>Telegram como canal del proveedor</td><td><span class="chip duda">sin correr</span></td><td>Escrito. Nunca habló con un bot real</td></tr>
           <tr><td>Ambiguous AI como sistema de registro (MCP)</td><td><span class="chip duda">sin correr</span></td><td>Cliente MCP y espejos escritos y probados con servidor falso. Nunca habló con el servidor real</td></tr>
-          <tr><td>Geovisor y pantalla web</td><td><span class="chip duda">sin compilar</span></td><td>El front nunca se compiló</td></tr>
+          <tr><td>Front compilado y servido</td><td><span class="chip si">verificado</span></td><td>Build sin errores ni avisos; <code>/</code>, <code>/arena</code> y <code>/atacar</code> responden 200 con sus chunks</td></tr>
+          <tr><td>Token de operación en los mandos</td><td><span class="chip si">verificado</span></td><td>Sin el token nadie aprueba una compra ajena; con comparación en tiempo constante</td></tr>
           <tr><td>Imagen de Docker y despliegue en swarm</td><td><span class="chip duda">sin construir</span></td><td>Los archivos están validados con el esquema, no con un build</td></tr>
           <tr><td>Escribirle a un proveedor que Exa encontró</td><td><span class="chip no">no existe</span></td><td>Queda en el mapa; su negociación la juega un agente marcado como simulado</td></tr>
           <tr><td>Leer tus contactos del celular</td><td><span class="chip no">imposible</span></td><td>Un bot de Telegram no puede escribir primero. WhatsApp tampoco</td></tr>
@@ -492,7 +493,7 @@
       <li><b>npm run estado</b> <span>imprime qué canales quedaron prendidos, si hay wallets y si el front está compilado, con un veredicto al final.</span></li>
       <li><b>npm run dev</b> <span>levanta el backend. El front va aparte con <code>npm --prefix web install</code> y <code>npm run web</code>.</span></li>
     </ol>
-    <p>Sin ninguna llave nada se rompe: cada pieza que falta se apaga sola y el mercado sigue cerrando tratos. Las 82 pruebas corren sin necesitar credenciales. En un contenedor es <code>docker compose up --build</code> con el mismo archivo.</p>
+    <p>Sin ninguna llave nada se rompe: cada pieza que falta se apaga sola y el mercado sigue cerrando tratos. Las 85 pruebas corren sin necesitar credenciales. En un contenedor es <code>docker compose up --build</code> con el mismo archivo.</p>
     <p><strong>Antes de cualquier demo con proveedores humanos:</strong> cada uno le manda <code>/start</code> al bot. Un bot no puede escribir primero, y sin ese paso no le llega el mensaje a nadie.</p>
   </section>
 
@@ -502,7 +503,7 @@
     <div class="cifras">
       <div><span class="campo">Dominio</span><b>470</b><span class="valor">líneas, cero I/O</span></div>
       <div><span class="campo">Adaptadores</span><b>1.361</b><span class="valor">líneas</span></div>
-      <div><span class="campo">Pruebas</span><b>865</b><span class="valor">líneas, 82 casos</span></div>
+      <div><span class="campo">Pruebas</span><b>865</b><span class="valor">líneas, 85 casos</span></div>
       <div><span class="campo">Dependencias</span><b>2</b><span class="valor">en el backend</span></div>
     </div>
     <h3>Las piezas</h3>

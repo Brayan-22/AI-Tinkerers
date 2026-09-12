@@ -42,7 +42,7 @@ declarada · motor de cotizaciones en paralelo (RFQ) · catálogo, geolocalizaci
 y descubrimiento con Exa · autorización con timeout por correo y por Slack ·
 contrato HTML · adaptador de Slack (socket mode) · adaptador de Telegram y
 proveedor humano · cerebros con modelo (OpenAI → OpenRouter → determinista) ·
-tarjeta A2A · front Angular · Docker y stack · 82 pruebas.
+tarjeta A2A · front Angular · Docker y stack · 85 pruebas.
 
 Más del ochenta por ciento del código es de hoy, y lo que sobrevive de agosto
 quedó reescrito al moverlo al hexágono. El motor previo se declara como
@@ -75,7 +75,35 @@ Todo junto en un contenedor, con el mismo `.env`:
 docker compose up --build      # → http://localhost:3000
 ```
 
-`npm test` corre las 82 pruebas sin necesitar ninguna llave.
+`npm test` corre las 85 pruebas sin necesitar ninguna llave.
+
+### Probar la idea en cinco minutos, con un solo token
+
+Para probar que el motor funciona no hace falta nada: `npm run dev`, abre `/`,
+busca *botellas de agua* y llena el formulario. Vas a ver las cotizaciones
+llegar, los descartes con su razón, el ganador y el contrato firmado.
+
+Para probar **la idea** — un canal humano sin API comportándose como una API —
+alcanza con el token de Telegram y tu propio celular. No hace falta Slack,
+porque la página es la otra puerta.
+
+1. Hablale a `@BotFather`, `/newbot`, y pon el token en `.env`.
+2. Reinicia. Debe decir `telegram: escuchando como @tu_bot`.
+3. Desde tu celular, escríbele a tu bot:
+   ```
+   /vendo tornillos en Bogotá
+   ```
+   Usa un producto que nadie más venda para ser el único proveedor y que la
+   prueba quede limpia.
+4. En `/`, busca *tornillos* y abre la compra.
+5. **Tu celular suena.** Contesta como le contestarías a un cliente:
+   ```
+   te los dejo en 1.200 cada uno y te los mando en 2 días
+   ```
+
+El agente lo convierte en cotización, adjudica, firma por las dos partes y te
+sirve el contrato. El lector de respuestas funciona sin llave de modelo: tiene
+sus propias pruebas y entiende «1.200», «$950 c/u», «mañana» y «el jueves».
 
 ### Qué necesitas según lo que quieras mostrar
 
