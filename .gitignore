@@ -1,0 +1,5 @@
+node_modules/
+wallets.json
+.env
+data/
+web/dist/

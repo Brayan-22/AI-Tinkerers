@@ -1,0 +1,20 @@
+:root {
+  --ink: #0a0e14; --ink2: #141b26; --paper: #e8e4d8; --line: #2a3646;
+  --gold: #e0a44a; --green: #4ec9a8; --red: #e5674f; --blue: #6ba3d6; --mute: #7d8794;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: var(--ink); color: var(--paper);
+  font-family: ui-monospace, 'JetBrains Mono', monospace;
+  padding: 20px; max-width: 1000px; margin: 0 auto;
+}
+a { color: inherit; }
+button {
+  background: var(--ink2); color: var(--paper); border: 1px solid var(--line);
+  padding: 8px 14px; border-radius: 3px; cursor: pointer; font: inherit; font-size: 12px;
+}
+button:hover { border-color: var(--gold); }
+input, select {
+  background: var(--ink2); border: 1px solid var(--line); color: var(--paper);
+  padding: 12px; font: inherit; border-radius: 4px; width: 100%;
+}

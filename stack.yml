@@ -1,0 +1,51 @@
+# Para docker stack (swarm). `stack deploy` NO construye imágenes ni lee .env,
+# así que primero se arma la imagen y se crean los secretos:
+#
+#   docker swarm init                                    # una vez
+#   npm run image                                        # docker build -t mercadia:latest .
+#   openssl rand -hex 32 | docker secret create mercadia_approval -
+#   docker secret create mercadia_wallets ./wallets.json
+#   npm run stack:up                                     # docker stack deploy -c stack.yml mercadia
+#   npm run stack:logs
+#
+# Con varios nodos hay que publicar la imagen en un registro: el nodo que
+# levante el servicio tiene que poder bajarla.
+services:
+  app:
+    image: ${MERCADIA_IMAGE:-mercadia:latest}
+    ports: ['3000:3000']
+    environment:
+      DB_PATH: /data/mercadia.db
+      WEB_DIR: /app/public
+      PUBLIC_URL: ${PUBLIC_URL:-http://localhost:3000}
+      BASE_SEPOLIA_RPC: ${BASE_SEPOLIA_RPC:-https://sepolia.base.org}
+      MAIL_FROM: ${MAIL_FROM:-}
+      MAIL_API_KEY: ${MAIL_API_KEY:-}
+      APPROVAL_SECRET_FILE: /run/secrets/approval
+      WALLETS_FILE: /run/secrets/wallets
+    secrets: [approval, wallets]
+    volumes: ['data:/data']
+    healthcheck:
+      test: ['CMD', 'node', '-e', "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 3s
+      start_period: 15s
+      retries: 3
+    deploy:
+      # Una sola réplica, a propósito: el estado vive en un archivo SQLite y en
+      # la memoria del proceso (la arena, los turnos, las autorizaciones
+      # abiertas). Esto no escala en horizontal sin sacar ese estado afuera.
+      replicas: 1
+      restart_policy: { condition: any, delay: 5s }
+      update_config: { order: stop-first, failure_action: rollback }
+      rollback_config: { order: stop-first }
+      resources:
+        limits: { memory: 512M }
+        reservations: { memory: 128M }
+
+secrets:
+  approval: { external: true, name: mercadia_approval }
+  wallets: { external: true, name: mercadia_wallets }
+
+volumes:
+  data:

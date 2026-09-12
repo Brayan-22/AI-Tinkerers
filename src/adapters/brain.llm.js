@@ -1,0 +1,238 @@
+// Cerebro LLM: el agente negocia en lenguaje natural de verdad.
+//
+// Lo importante: la acción estructurada que devuelve pasa por el guardián
+// igual que la de cualquiera. Si alucina un precio que no puede pagar, lo
+// expulsan por ofertar sin fondos. El LLM nunca es la frontera de seguridad,
+// y por eso se le puede dar libertad para hablar.
+//
+// Compatible con OpenAI y OpenRouter: misma API, distinta URL base.
+import { secret } from './secrets.js';
+
+const URL_LLM = process.env.LLM_BASE_URL ?? 'https://openrouter.ai/api/v1/chat/completions';
+const MODELO = process.env.LLM_MODEL ?? 'openai/gpt-4o-mini';
+const ACCIONES = ['quote', 'offer', 'accept', 'talk', 'reject', 'walk_away'];
+
+export function llmKey() {
+  return secret('OPENROUTER_API_KEY') ?? secret('OPENAI_API_KEY') ?? null;
+}
+
+const mandato = (agent, view) => {
+  const partes = [
+    `Eres ${agent.name}${agent.owner ? ` y trabajas para ${agent.owner}` : ''}.`,
+    `Rol: ${agent.role === 'buyer' ? 'comprador' : 'vendedor'}. Producto: ${view.item ?? 'el pedido'}. Cantidad: ${agent.qty}.`,
+  ];
+  if (agent.maxPrice) partes.push(`Tu techo es $${agent.maxPrice} por unidad. NUNCA ofrezcas más.`);
+  if (agent.minPrice) partes.push(`Tu piso es $${agent.minPrice} por unidad. NUNCA cotices menos.`);
+  if (agent.maxLeadDays) partes.push(`Necesitas entrega en máximo ${agent.maxLeadDays} días.`);
+  if (agent.leadDays) partes.push(`Tu plazo de entrega es ${agent.leadDays} días.`);
+  partes.push(`Ronda ${view.round}. Regatea, no aceptes el primer número, pero cierra si el trato te sirve.`);
+  if (view.lastQuote) partes.push(`Última cotización sobre la mesa: $${view.lastQuote.price} con entrega en ${view.lastQuote.leadDays} días.`);
+  if (view.bestOffer) partes.push(`Hay una oferta firme de $${view.bestOffer.price} (id ${view.bestOffer.id}) que puedes aceptar.`);
+  return partes.join(' ');
+};
+
+const INSTRUCCION = `Responde SOLO un JSON:
+{"text":"lo que le dices a la contraparte, en español, máximo 25 palabras",
+ "reason":"por qué haces esto, para tu dueño, máximo 20 palabras",
+ "action":{"type":"quote|offer|accept|talk|reject|walk_away","price":number,"qty":number,"leadDays":number,"offerId":"solo si aceptas"}}
+Reglas: "quote" cotiza sin comprometer fondos (vendedor). "offer" compromete tu plata (comprador).
+"accept" cierra una oferta firme que ya existe. "walk_away" te retira si hay mala fe. Nada de texto fuera del JSON.`;
+
+// Separada para poder probarla sin red: es donde de verdad se puede romper.
+export function parseAction(contenido) {
+  if (!contenido) return null;
+  const limpio = String(contenido).replace(/^```(?:json)?/i, '').replace(/```$/, '').trim();
+  const desde = limpio.indexOf('{');
+  const hasta = limpio.lastIndexOf('}');
+  if (desde < 0 || hasta < desde) return null;
+  let json;
+  try { json = JSON.parse(limpio.slice(desde, hasta + 1)); } catch { return null; }
+  const tipo = json?.action?.type;
+  if (!ACCIONES.includes(tipo)) return null;
+  const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : undefined);
+  return {
+    text: String(json.text ?? '').slice(0, 300),
+    reason: String(json.reason ?? '').slice(0, 300),
+    action: {
+      type: tipo,
+      ...(num(json.action.price) !== undefined && { price: num(json.action.price) }),
+      ...(num(json.action.qty) !== undefined && { qty: num(json.action.qty) }),
+      ...(num(json.action.leadDays) !== undefined && { leadDays: num(json.action.leadDays) }),
+      ...(json.action.offerId && { offerId: String(json.action.offerId) }),
+    },
+  };
+}
+
+// Envuelve un cerebro determinista: si no hay llave, si el modelo se cae o si
+// contesta basura, negocia el de siempre. La mesa nunca se queda esperando.
+export function llmBrain(fallback, { key = llmKey(), model = MODELO, timeoutMs = 12_000 } = {}) {
+  if (!key) return fallback;
+
+  return async (agent, view) => {
+    const corte = AbortSignal.timeout(timeoutMs);
+    try {
+      const res = await fetch(URL_LLM, {
+        method: 'POST', signal: corte,
+        headers: { authorization: `Bearer ${key}`, 'content-type': 'application/json' },
+        body: JSON.stringify({
+          model, temperature: 0.7, max_tokens: 220,
+          messages: [
+            { role: 'system', content: `${mandato(agent, view)}\n\n${INSTRUCCION}` },
+            { role: 'user', content: view.lastQuote || view.bestOffer ? 'Tu turno.' : 'Abre la negociación.' },
+          ],
+        }),
+      });
+      if (!res.ok) return fallback(agent, view);
+      const data = await res.json();
+      const accion = parseAction(data?.choices?.[0]?.message?.content);
+      // El techo y el piso no se negocian con el modelo: se imponen acá.
+      if (!accion) return fallback(agent, view);
+      if (accion.action.type === 'offer' && agent.maxPrice && accion.action.price > agent.maxPrice) return fallback(agent, view);
+      if (accion.action.type === 'quote' && agent.minPrice && accion.action.price < agent.minPrice) return fallback(agent, view);
+      if (accion.action.qty === undefined && ['offer', 'quote'].includes(accion.action.type)) accion.action.qty = agent.qty;
+      if (accion.action.leadDays === undefined && agent.leadDays) accion.action.leadDays = agent.leadDays;
+      return accion;
+    } catch {
+      return fallback(agent, view);
+    }
+  };
+}
+
+// ── Entender un pedido escrito como lo escribe una persona ────────────────
+const DIAS = { domingo: 0, lunes: 1, martes: 2, miércoles: 3, miercoles: 3, jueves: 4, viernes: 5, sábado: 6, sabado: 6 };
+
+const numero = (s) => Number(String(s).replace(/[.,](?=\d{3}\b)/g, '').replace(',', '.'));
+
+// "para el viernes", "en 3 días", "mañana": todo eso son días desde hoy.
+export function plazoPorReglas(texto, hoy = new Date(), porDefecto = 7) {
+  const bajo = String(texto ?? '').toLowerCase();
+  const enDias = bajo.match(/(?:en|dentro de|demoro|demora|entrego en)\s+(\d+)\s*d[íi]as?/);
+  if (enDias) return Number(enDias[1]);
+  if (/mañana|manana/.test(bajo)) return 1;
+  if (/hoy|urgente|ya mismo|de una|inmediat/.test(bajo)) return 1;
+  const diaSemana = Object.keys(DIAS).find((d) => bajo.includes(d));
+  if (diaSemana) return ((DIAS[diaSemana] - hoy.getDay() + 7) % 7) || 7;
+  if (/esta semana/.test(bajo)) return 7;
+  if (/pr[óo]xima semana|siguiente semana/.test(bajo)) return 14;
+  return porDefecto;
+}
+
+// Respaldo determinista: si no hay modelo o contesta mal, igual se entiende
+// "necesito 200 botellas de agua para el viernes, máximo $1.500".
+export function pedidoPorReglas(texto, hoy = new Date()) {
+  const t = String(texto ?? '');
+  const bajo = t.toLowerCase();
+
+  const techo = bajo.match(/(?:m[áa]ximo|hasta|tope|no m[áa]s de|menos de)\s*\$?\s*([\d.,]+)/)
+    ?? bajo.match(/\$\s?([\d.,]+)/);
+  const maxLeadDays = plazoPorReglas(t, hoy);
+
+  // La cantidad es el primer número que no sea un precio.
+  const sinPrecios = t.replace(/\$\s?[\d.,]+/g, ' ');
+  const cantidad = sinPrecios.match(/\b(\d{1,6})\b/);
+
+  const item = t
+    .replace(/^\s*(necesito|quiero|comprar?|cons[íi]gueme|busco|me hace falta|p[íi]deme)\s+/i, '')
+    .replace(/\$\s?[\d.,]+/g, ' ')
+    .replace(/\b\d{1,6}\b/, ' ')
+    .replace(/(?:para|antes de|entrega|en)\s+(?:el\s+)?(?:lunes|martes|mi[ée]rcoles|jueves|viernes|s[áa]bado|domingo|mañana|manana|hoy|\d+\s*d[íi]as?|esta semana)/gi, ' ')
+    .replace(/(?:m[áa]ximo|hasta|tope|no m[áa]s de|menos de|urgente|por favor|c\/u|cada uno|la unidad)/gi, ' ')
+    .replace(/[,.;]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  return {
+    item: item.slice(0, 60) || null,
+    qty: cantidad ? Number(cantidad[1]) : 100,
+    maxPrice: techo ? numero(techo[1]) : null,
+    maxLeadDays,
+  };
+}
+
+// ── Entender la respuesta de un proveedor humano ──────────────────────────
+// "te la dejo en 1.200 y te la mando el jueves" tiene que volverse una
+// cotización estructurada. Esto es el corazón del asunto: un canal humano
+// sin API se comporta como una API.
+export function cotizacionPorReglas(texto, hoy = new Date()) {
+  const t = String(texto ?? '');
+  const bajo = t.toLowerCase();
+  if (/no (?:tengo|manejo|hay|me queda|trabajo)|agotad|sin stock|no vendo|no puedo/.test(bajo)) {
+    return { price: null, leadDays: null, rechaza: true };
+  }
+  const conMoneda = t.match(/\$\s?([\d.,]+)/) ?? bajo.match(/([\d.,]+)\s*(?:pesos|cop|mil)/);
+  const suelto = bajo.match(/(?:a|en|por|vale|cuesta|queda en|dejo en)\s+([\d.,]{3,})/);
+  const crudo = conMoneda ?? suelto ?? t.match(/\b([\d.,]{3,})\b/);
+  const price = crudo ? numero(crudo[1]) : null;
+  return {
+    price: Number.isFinite(price) && price > 0 ? price : null,
+    leadDays: plazoPorReglas(t, hoy, null),
+    rechaza: false,
+  };
+}
+
+export async function extraerCotizacion(texto, { key = llmKey(), model = MODELO } = {}) {
+  const reglas = cotizacionPorReglas(texto);
+  if (!key) return { ...reglas, via: 'reglas' };
+  try {
+    const res = await fetch(URL_LLM, {
+      method: 'POST', signal: AbortSignal.timeout(10_000),
+      headers: { authorization: `Bearer ${key}`, 'content-type': 'application/json' },
+      body: JSON.stringify({
+        model, temperature: 0, max_tokens: 120,
+        messages: [{
+          role: 'system',
+          content: `Hoy es ${new Date().toISOString().slice(0, 10)} (${new Date().toLocaleDateString('es-CO', { weekday: 'long' })}).
+Un proveedor contestó a una solicitud de cotización. Extrae SOLO JSON:
+{"price":precio por unidad como number o null,"leadDays":días hasta la entrega como number o null,"rechaza":true si dice que no tiene o no puede}
+El precio es por unidad. Si da un total, divídelo si sabes la cantidad; si no, déjalo como está.`,
+        }, { role: 'user', content: String(texto).slice(0, 500) }],
+      }),
+    });
+    if (!res.ok) return { ...reglas, via: 'reglas' };
+    const data = await res.json();
+    const bruto = String(data?.choices?.[0]?.message?.content ?? '');
+    const json = JSON.parse(bruto.slice(bruto.indexOf('{'), bruto.lastIndexOf('}') + 1));
+    return {
+      price: Number(json.price) > 0 ? Number(json.price) : reglas.price,
+      leadDays: Number(json.leadDays) > 0 ? Number(json.leadDays) : reglas.leadDays,
+      rechaza: Boolean(json.rechaza) || reglas.rechaza,
+      via: 'modelo',
+    };
+  } catch {
+    return { ...reglas, via: 'reglas' };
+  }
+}
+
+export async function extraerPedido(texto, { key = llmKey(), model = MODELO } = {}) {
+  const reglas = pedidoPorReglas(texto);
+  if (!key) return { ...reglas, via: 'reglas' };
+  try {
+    const res = await fetch(URL_LLM, {
+      method: 'POST', signal: AbortSignal.timeout(10_000),
+      headers: { authorization: `Bearer ${key}`, 'content-type': 'application/json' },
+      body: JSON.stringify({
+        model, temperature: 0, max_tokens: 150,
+        messages: [{
+          role: 'system',
+          content: `Hoy es ${new Date().toISOString().slice(0, 10)}. Extrae el pedido de compra y responde SOLO JSON:
+{"item":"qué quiere comprar, en singular y sin cantidad","qty":number,"maxPrice":number o null,"maxLeadDays":number}
+maxPrice es por unidad. maxLeadDays son días desde hoy hasta la entrega.`,
+        }, { role: 'user', content: String(texto).slice(0, 500) }],
+      }),
+    });
+    if (!res.ok) return { ...reglas, via: 'reglas' };
+    const data = await res.json();
+    const bruto = String(data?.choices?.[0]?.message?.content ?? '');
+    const json = JSON.parse(bruto.slice(bruto.indexOf('{'), bruto.lastIndexOf('}') + 1));
+    if (!json?.item) return { ...reglas, via: 'reglas' };
+    return {
+      item: String(json.item).slice(0, 60),
+      qty: Number(json.qty) > 0 ? Number(json.qty) : reglas.qty,
+      maxPrice: Number(json.maxPrice) > 0 ? Number(json.maxPrice) : reglas.maxPrice,
+      maxLeadDays: Number(json.maxLeadDays) > 0 ? Number(json.maxLeadDays) : reglas.maxLeadDays,
+      via: 'modelo',
+    };
+  } catch {
+    return { ...reglas, via: 'reglas' };
+  }
+}

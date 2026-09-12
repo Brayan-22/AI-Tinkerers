@@ -1,0 +1,25 @@
+{
+  "name": "mercadia",
+  "version": "1.0.0",
+  "description": "Mercado abierto de agentes con guardi\u00e1n determinista y liquidaci\u00f3n en Base Sepolia",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "node src/main.js",
+    "dev": "node --watch src/main.js",
+    "web": "npm --prefix web start",
+    "test": "node --test test/*.test.js",
+    "wallets": "node scripts/make-wallets.js",
+    "image": "docker build -t mercadia:latest .",
+    "stack:up": "docker stack deploy -c stack.yml mercadia",
+    "stack:down": "docker stack rm mercadia",
+    "stack:logs": "docker service logs -f mercadia_app"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "viem": "^2.55.19",
+    "ws": "^8.21.3"
+  },
+  "type": "module"
+}
