@@ -417,7 +417,8 @@ async function pedidoDeSlack(texto, donde) {
     return slack.decir(donde, 'No entendí qué necesitas. Escríbelo así: *necesito 200 botellas de agua para el viernes, máximo $1.500 c/u*');
   }
 
-  const quien = (await slack.quienEs(donde.user).catch(() => null)) ?? 'Comprador';
+  const perfil = (await slack.quienEs(donde.user).catch(() => null)) ?? {};
+  const quien = perfil.nombre ?? 'Comprador';
   const buyer = `COMPRA-${slug(quien)}`;
   const saldo = store.balance(buyer);
 
@@ -439,6 +440,7 @@ Voy a cotizar con varios proveedores y vuelvo con el mejor.`);
     maxPrice: techo, maxLeadDays: pedido.maxLeadDays,
     budget: saldo ?? PRESUPUESTO_DEMO,
     channel: donde.channel, place: process.env.MARKET_PLACE ?? 'Colombia',
+    email: perfil.correo ?? undefined, // para mandarle la copia del contrato
     mode: 'supervised', // en un canal de trabajo, la compra se aprueba con un botón
     brain: pensando(askBrain),
   };

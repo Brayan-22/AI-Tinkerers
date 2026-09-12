@@ -89,10 +89,15 @@ export function slackChannel({
 
   return {
     activo, conectar,
-    // Contexto que el canal regala: quién está pidiendo, con su nombre real.
+    // Contexto que el canal regala: quién pide, con su nombre y su correo.
+    // El correo necesita el scope users:read.email; sin él llega vacío y la
+    // copia del contrato simplemente no se envía.
     async quienEs(user) {
       const r = await llamar('users.info', { user });
-      return r?.user?.real_name ?? r?.user?.name ?? null;
+      return {
+        nombre: r?.user?.real_name ?? r?.user?.name ?? null,
+        correo: r?.user?.profile?.email ?? null,
+      };
     },
     conectado: () => vivo,
     decir,
