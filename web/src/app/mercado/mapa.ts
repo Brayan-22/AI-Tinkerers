@@ -9,6 +9,10 @@ import { Listing } from '../market';
   template: '<div class="lienzo" #lienzo></div>',
   styles: `
     .lienzo { height: 400px; border: 1px solid var(--line); border-radius: var(--radius); background: #11161f; }
+    /* El mapa de OSM es claro; esto lo vuelve oscuro sin necesitar otra fuente. */
+    .lienzo ::ng-deep .leaflet-tile-pane { filter: invert(1) hue-rotate(180deg) brightness(.85) contrast(.9); }
+    .lienzo ::ng-deep .leaflet-control-attribution { background: rgba(0,0,0,.5); color: var(--mute); }
+    .lienzo ::ng-deep .leaflet-control-attribution a { color: var(--mute); }
     @media (max-width: 700px) { .lienzo { height: 260px; } }
   `,
 })
@@ -24,12 +28,11 @@ export class Mapa {
   constructor() {
     afterNextRender(() => {
       this.mapa = L.map(this.lienzo().nativeElement, { worldCopyJump: true }).setView([8, -60], 2);
-      // CARTO empezó a exigir API key y pinta "API KEY REQUIRED" en cada mosaico.
-      // El lienzo gris oscuro de Esri no pide llave: base sin rótulos y una capa
-      // de referencia con los nombres encima.
-      const esri = 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_{c}/MapServer/tile/{z}/{y}/{x}';
-      L.tileLayer(esri.replace('{c}', 'Base'), { maxZoom: 16, attribution: 'Tiles © Esri' }).addTo(this.mapa);
-      L.tileLayer(esri.replace('{c}', 'Reference'), { maxZoom: 16, pane: 'shadowPane' }).addTo(this.mapa);
+      // OpenStreetMap directo: no pide llave. Se oscurece por CSS para que
+      // encaje con la página, en vez de depender de un basemap con cuenta.
+      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 12, attribution: '© OpenStreetMap',
+      }).addTo(this.mapa);
       this.capa = L.layerGroup().addTo(this.mapa);
       this.pintar();
     });

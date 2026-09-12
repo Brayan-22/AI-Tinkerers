@@ -122,6 +122,12 @@ export function llmBrain(fallback, { key, model = MODELO, url, providers, timeou
       // expulsa por ofertar sin plata. Cotizar es del vendedor, no del comprador.
       if (accion.action.type === 'offer' && agent.role === 'seller') return fallback(agent, view);
       if (accion.action.type === 'quote' && agent.role === 'buyer') return fallback(agent, view);
+      // Si hay una oferta firme que cubre su propio piso y el modelo no la
+      // toma, se le quita el teclado: nadie rechaza la plata que él mismo pidió.
+      if (view.bestOffer && agent.minPrice && view.bestOffer.price >= agent.minPrice
+          && accion.action.type !== 'accept') {
+        return fallback(agent, view);
+      }
       if (accion.action.qty === undefined && ['offer', 'quote'].includes(accion.action.type)) accion.action.qty = agent.qty;
       if (accion.action.leadDays === undefined && agent.leadDays) accion.action.leadDays = agent.leadDays;
       return accion;

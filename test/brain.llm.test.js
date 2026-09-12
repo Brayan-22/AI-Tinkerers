@@ -134,3 +134,11 @@ test('llm: un vendedor no puede ofertar ni un comprador cotizar', async () => {
   const c = await brain({ name: 'B', role: 'buyer', qty: 100, maxPrice: 45 }, { round: 1 });
   assert.equal(c.text, 'respaldo', 'cotizar es del vendedor');
 });
+
+test('llm: no se rechaza una oferta que cubre el piso del propio vendedor', async () => {
+  const acepta = () => ({ text: 'hecho', reason: 'cubre mi piso', action: { type: 'accept', offerId: 'of-1' } });
+  const brain = llmBrain(acepta, { key: 'x' });
+  globalThis.fetch = async () => ({ ok: true, json: async () => ({ choices: [{ message: { content: '{"text":"déjame pensarlo","reason":"quiero más","action":{"type":"talk"}}' } }] }) });
+  const r = await brain({ name: 'S', role: 'seller', qty: 100, minPrice: 41 }, { round: 1, bestOffer: { id: 'of-1', price: 44, qty: 100 } });
+  assert.equal(r.action.type, 'accept', 'el modelo no puede tumbar la adjudicación');
+});

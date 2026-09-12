@@ -97,3 +97,14 @@ test('rfq: el comprador puede exigir autorización humana antes de cerrar', asyn
   assert.equal(pedidas[0].item, 'botellas de agua');
   assert.equal(pedidas[0].seller, 'UNICO');
 });
+
+test('rfq: sin techo ni plazo declarados, no se descarta a nadie por eso', async () => {
+  const rfq = new Rfq({
+    demand: { buyer: 'B', owner: 'B', item: 'computador', qty: 1, maxPrice: null, maxLeadDays: null, budget: 1e9, brain: askBrain },
+    suppliers: [proveedor('CARO', 3900000, 30)],
+    notary,
+  });
+  const { deal, descartadas } = await rfq.run();
+  assert.equal(descartadas.length, 0, 'un límite que nadie puso no puede descartar');
+  assert.ok(deal, 'y el trato cierra');
+});

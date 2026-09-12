@@ -52,7 +52,7 @@ const dias = (n: number | null | undefined) => (Number(n) === 1 ? '1 día' : `${
               <tr><th>proveedor</th><th>dónde</th><th class="num">desde</th><th class="num">entrega</th><th class="num">tratos</th></tr>
               @for (p of market.found(); track p.seller) {
                 <tr>
-                  <td>{{ p.owner }}<small>{{ p.seller }}</small></td>
+                  <td>{{ p.owner }} <span class="origen {{ p.source ?? 'demo' }}">{{ origen(p.source) }}</span><small>{{ p.seller }}</small></td>
                   <td>{{ p.city ?? '—' }} @if (p.country) { · {{ p.country }} }</td>
                   <td class="num">{{ plata(p.minPrice) }}</td>
                   <td class="num">{{ dias(p.leadDays) }}</td>
@@ -186,6 +186,9 @@ const dias = (n: number | null | undefined) => (Number(n) === 1 ? '1 día' : `${
     .ganador .cifra { font-size: 1rem; color: var(--text2); }
     .ganador .cifra b { color: var(--paper); }
     .razon { color: var(--mute); font-size: .85rem; margin-left: 6px; }
+    .origen { display: inline-block; font-family: var(--mono); font-size: .62rem; letter-spacing: .08em;
+      text-transform: uppercase; padding: 1px 6px; border-radius: 3px; border: 1px solid currentColor; vertical-align: 1px; }
+    .origen.telegram { color: var(--green); } .origen.exa { color: var(--blue); } .origen.demo { color: var(--mute); }
   `,
 })
 export class Mercado {
@@ -218,6 +221,13 @@ export class Mercado {
       const el = this.feed()?.nativeElement;
       if (el) setTimeout(() => (el.scrollTop = el.scrollHeight));
     });
+  }
+
+  // De dónde sale cada proveedor. Lo que no es una persona real lo dice.
+  origen(source?: string | null) {
+    if (source === 'telegram') return 'persona real';
+    if (source === 'exa') return 'hallado en la web · simulado';
+    return 'utilería';
   }
 
   buscar() { this.market.buscar(this.item()); }
