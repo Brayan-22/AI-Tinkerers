@@ -36,9 +36,11 @@ export class Rfq {
 
   #descarte(q) {
     const { qty, maxPrice, maxLeadDays, budget } = this.demand;
-    if (q.leadDays > maxLeadDays) return `plazo de ${q.leadDays} días y el tope es ${maxLeadDays}`;
-    if (q.price > maxPrice) return `$${q.price} por unidad y el techo es $${maxPrice}`;
-    if (q.price * qty > budget) return `$${q.price * qty} no cabe en el presupuesto de $${budget}`;
+    // Un límite que el comprador no puso no descarta a nadie. Inventar un techo
+    // y después rechazar por él es peor que no tener techo.
+    if (maxLeadDays != null && q.leadDays > maxLeadDays) return `plazo de ${q.leadDays} días y el tope es ${maxLeadDays}`;
+    if (maxPrice != null && q.price > maxPrice) return `$${q.price} por unidad y el techo es $${maxPrice}`;
+    if (budget != null && q.price * qty > budget) return `$${q.price * qty} no cabe en el presupuesto de $${budget}`;
     return null;
   }
 
@@ -57,14 +59,23 @@ export class Rfq {
       return true;
     });
 
-    const ganadora = mejorCotizacion(viables);
-    if (!ganadora) {
+    const ordenadas = [...viables].sort((a, b) => a.price - b.price || a.leadDays - b.leadDays);
+    if (!ordenadas.length) {
       this.#emit('rfq_empty', { cotizadas: quotes.length, descartadas });
       return { deal: null, quotes, descartadas, winner: null };
     }
 
-    const deal = await this.#adjudicar(ganadora, viables.length);
-    return { deal, quotes, descartadas, winner: ganadora };
+    // Si el primero se echa para atrás, se intenta con el siguiente. Nadie se
+    // queda sin respuesta porque un proveedor se arrepintió.
+    for (const candidata of ordenadas) {
+      const deal = await this.#adjudicar(candidata, ordenadas.length);
+      if (deal) return { deal, quotes, descartadas, winner: candidata };
+    }
+
+    // Ninguno cerró: al menos se entrega la mejor que se consiguió, para que
+    // el comprador decida por fuera en vez de quedarse con las manos vacías.
+    this.#emit('sin_cierre', { mejor: ordenadas[0], intentos: ordenadas.length });
+    return { deal: null, quotes, descartadas, winner: ordenadas[0] };
   }
 
   // Fase 1: preguntar. Nadie compromete plata todavía.

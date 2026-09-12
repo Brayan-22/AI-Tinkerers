@@ -96,3 +96,14 @@ test('store: el contrato se guarda y se recupera entero', () => {
   assert.equal(s.contract('c1').sheet.price, 42);
   assert.equal(s.contract('nope'), null);
 });
+
+test('store: la búsqueda aguanta singular, plural y ruido', () => {
+  const s = openStore(':memory:');
+  s.recordAgent('P1', 'Uno'); s.listSupply('P1', { item: 'sillas de oficina' });
+  s.recordAgent('P2', 'Dos'); s.listSupply('P2', { item: 'botellas de agua' });
+  assert.equal(s.search('silla de oficina').length, 1, 'singular encuentra plural');
+  assert.equal(s.search('sillas de oficinas').length, 1, 'plural de más también');
+  assert.equal(s.search('SILLAS DE OFICINA').length, 1, 'mayúsculas');
+  assert.equal(s.search('botella de agua').length, 1);
+  assert.equal(s.search('tornillos').length, 0, 'lo que no hay, no aparece');
+});

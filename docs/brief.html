@@ -350,7 +350,7 @@
   <div class="meta">
     <div><span class="campo">Equipo</span><span class="valor">Gludsito</span></div>
     <div><span class="campo">Entorno</span><span class="valor">Slack + Telegram</span></div>
-    <div><span class="campo">Pruebas</span><span class="valor">85 / 85</span></div>
+    <div><span class="campo">Pruebas</span><span class="valor">94 / 94</span></div>
     <div><span class="campo">Cadena</span><span class="valor">Base Sepolia</span></div>
   </div>
 
@@ -493,7 +493,7 @@
       <li><b>npm run estado</b> <span>imprime qué canales quedaron prendidos, si hay wallets y si el front está compilado, con un veredicto al final.</span></li>
       <li><b>npm run dev</b> <span>levanta el backend. El front va aparte con <code>npm --prefix web install</code> y <code>npm run web</code>.</span></li>
     </ol>
-    <p>Sin ninguna llave nada se rompe: cada pieza que falta se apaga sola y el mercado sigue cerrando tratos. Las 85 pruebas corren sin necesitar credenciales. En un contenedor es <code>docker compose up --build</code> con el mismo archivo.</p>
+    <p>Sin ninguna llave nada se rompe: cada pieza que falta se apaga sola y el mercado sigue cerrando tratos. Las 94 pruebas corren sin necesitar credenciales. En un contenedor es <code>docker compose up --build</code> con el mismo archivo.</p>
     <p><strong>Antes de cualquier demo con proveedores humanos:</strong> cada uno le manda <code>/start</code> al bot. Un bot no puede escribir primero, y sin ese paso no le llega el mensaje a nadie.</p>
   </section>
 
@@ -501,9 +501,9 @@
     <h2>Arquitectura y cifras</h2>
     <p>Hexagonal, y algo lo verifica: hay un test que falla si el dominio importa infraestructura. En JavaScript no existe compilador que lo imponga, así que el test es el compilador.</p>
     <div class="cifras">
-      <div><span class="campo">Dominio</span><b>470</b><span class="valor">líneas, cero I/O</span></div>
-      <div><span class="campo">Adaptadores</span><b>1.361</b><span class="valor">líneas</span></div>
-      <div><span class="campo">Pruebas</span><b>865</b><span class="valor">líneas, 85 casos</span></div>
+      <div><span class="campo">Dominio</span><b>477</b><span class="valor">líneas, cero I/O</span></div>
+      <div><span class="campo">Adaptadores</span><b>1.841</b><span class="valor">líneas</span></div>
+      <div><span class="campo">Pruebas</span><b>1.034</b><span class="valor">líneas, 94 casos</span></div>
       <div><span class="campo">Dependencias</span><b>2</b><span class="valor">en el backend</span></div>
     </div>
     <h3>Las piezas</h3>

@@ -1,106 +1,107 @@
 import { Component, ElementRef, effect, inject, signal, viewChild } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { Market } from '../market';
+import { Topbar } from '../topbar';
 
+const plata = (n: number | null | undefined) => '$' + Number(n ?? 0).toLocaleString('es-CO');
+
+// El coliseo: la mesa a la izquierda, el libro y el leaderboard a la derecha.
+// Misma cabecera, mismo feed y mismas píldoras que el mercado.
 @Component({
   selector: 'app-arena',
-  imports: [RouterLink],
+  imports: [RouterLink, Topbar],
   template: `
-    <h1>MERCADIA <span class="live" [class.off]="!market.live()">● {{ market.live() ? 'EN VIVO' : 'SIN CONEXIÓN' }}</span></h1>
+    <div class="page">
+      <app-topbar />
 
-    <div class="controls">
-      <button (click)="market.send({ type: 'arena_start', mode: 'auto' })">▶ abrir la arena</button>
-      <button (click)="market.send({ type: 'arena_start', mode: 'supervised' })">▶ arena supervisada</button>
-      <button (click)="market.send({ type: 'exploit_demo' })">🦈 escenario explotación</button>
-      <button (click)="market.send({ type: 'arena_stop' })">■ cerrar</button>
-      <a routerLink="/atacar" class="hint">ataca desde tu celular → <b>/atacar</b></a>
-    </div>
+      <section class="hero">
+        <p class="eyebrow">Coliseo del guardián</p>
+        <h1 class="display">Aquí los agentes intentan robar. El guardián determinista los expulsa.</h1>
+        <div class="controls">
+          <button class="primary" (click)="market.send({ type: 'arena_start', mode: 'auto' })">▶ abrir la arena</button>
+          <button (click)="market.send({ type: 'arena_start', mode: 'supervised' })">▶ arena supervisada</button>
+          <button (click)="market.send({ type: 'exploit_demo' })">🦈 escenario de explotación</button>
+          <button class="ghost" (click)="market.send({ type: 'arena_stop' })">■ cerrar</button>
+          <a routerLink="/atacar" class="hint">el público ataca desde el celular → <b>/atacar</b></a>
+        </div>
+      </section>
 
-    <div class="stage">
-      <div id="chat" #chat>
-        @for (l of market.lines(); track $index) {
-          <div class="msg {{ l.cls }}">
-            <div class="who">{{ l.who }}</div>
-            <div class="bub">
-              @if (l.href) { <a [href]="l.href" target="_blank" rel="noopener">{{ l.text }}</a> }
-              @else { {{ l.text }} }
+      <div class="stage">
+        <div class="feed" #chat>
+          @for (l of market.lines(); track $index) {
+            <div class="msg {{ l.cls }}">
+              <div class="who">{{ l.who }}</div>
+              <div class="bub">@if (l.href) { <a [href]="l.href" target="_blank" rel="noopener">{{ l.text }}</a> } @else { {{ l.text }} }</div>
+              @if (l.reason) { <div class="why">porque: {{ l.reason }}</div> }
             </div>
-            @if (l.reason) { <div class="why">porque: {{ l.reason }}</div> }
-          </div>
-        }
+          }
+          @if (!market.lines().length) { <p class="empty">abre la arena y mira la negociación mensaje a mensaje</p> }
+        </div>
+
+        <aside>
+          <p class="eyebrow">libro en vivo</p>
+          @for (a of accounts(); track a[0]) {
+            <div class="acct">
+              <div class="nm mono">{{ a[0] }}</div>
+              <div class="val num">{{ plata(a[1].available) }}</div>
+              <div class="esc">escrow {{ plata(a[1].escrowed) }}</div>
+              @if (market.scenery().has(a[0])) { <div class="esc scenery">utilería · saldo emitido por la casa</div> }
+            </div>
+          }
+          @if (!accounts().length) { <p class="esc">sin sesión abierta</p> }
+
+          <p class="eyebrow sep">⚔ leaderboard</p>
+          @for (b of market.board(); track b.name) {
+            <div class="acct">
+              <div class="nm mono">{{ b.name }} @if (b.sponsor) { · <span class="azul">{{ b.sponsor }}</span> }</div>
+              @if (b.label) { <div class="lbl">{{ b.label }}</div> }
+              <div class="esc">
+                @if (b.expelled) { <span class="pill bad">expulsado</span> }
+                @else if (b.queued) { <span class="pill warn">en cola</span> }
+                @else { <span class="pill">{{ b.deals }} tratos</span> }
+                <span>{{ b.violations }} violaciones</span>
+              </div>
+            </div>
+          }
+        </aside>
       </div>
 
-      <aside>
-        <h4>LIBRO EN VIVO</h4>
-        @for (a of accounts(); track a[0]) {
-          <div class="acct">
-            <div class="nm">{{ a[0] }}</div>
-            <div class="val">\${{ a[1].available.toLocaleString('es-CO') }}</div>
-            <div class="esc">escrow \${{ a[1].escrowed.toLocaleString('es-CO') }}</div>
-            @if (market.scenery().has(a[0])) { <div class="esc scenery">utilería · saldo emitido por la casa</div> }
+      @if (market.approval(); as ap) {
+        <div class="aviso approval">
+          <p>🔔 Tu agente <b>{{ ap.agent }}</b> quiere cerrar {{ ap.qty }} u × {{ plata(ap.price) }} = <b>{{ plata(ap.total) }}</b> con {{ ap.seller }}</p>
+          <div class="acciones">
+            <button class="primary" (click)="market.answer('si')">✓ Sí</button>
+            <button class="danger" (click)="market.answer('no')">✗ No</button>
+            <input placeholder="otro: tu contraorden…" (input)="note.set($any($event.target).value)">
+            <button (click)="market.answer('otro', note())">↩ Otro</button>
           </div>
-        }
-        <h4 class="sep">⚔ LEADERBOARD</h4>
-        @for (b of market.board(); track b.name) {
-          <div class="acct">
-            <div class="nm">{{ b.name }} @if (b.sponsor) { · <span class="who-blue">{{ b.sponsor }}</span> }</div>
-            @if (b.label) { <div class="lbl">{{ b.label }}</div> }
-            <div class="esc">
-              {{ b.expelled ? '✕ EXPULSADO' : b.queued ? '⏳ en cola' : b.deals + ' tratos' }} · {{ b.violations }} violaciones
-            </div>
-          </div>
-        }
-      </aside>
+        </div>
+      }
     </div>
-
-    @if (market.approval(); as ap) {
-      <div id="approval">
-        <p>🔔 Tu agente <b>{{ ap.agent }}</b> quiere cerrar {{ ap.qty }}u × \${{ ap.price }} = \${{ ap.total.toLocaleString('es-CO') }} con {{ ap.seller }}</p>
-        <button (click)="market.answer('si')">✓ Sí</button>
-        <button (click)="market.answer('no')">✗ No</button>
-        <input placeholder="otro: tu contraorden…" (input)="note.set($any($event.target).value)">
-        <button (click)="market.answer('otro', note())">↩ Otro</button>
-      </div>
-    }
   `,
   styles: `
-    h1 { font-size: 16px; letter-spacing: .15em; color: var(--gold); margin-bottom: 14px; }
-    .live { color: var(--red); font-size: 11px; margin-left: 10px; }
-    .live.off { color: var(--mute); }
-    .controls { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
-    .hint { font-size: 11px; color: var(--mute); align-self: center; text-decoration: none; }
+    .hero { padding: 22px 0 8px; }
+    .hero h1 { font-size: clamp(1.4rem, 2.6vw, 2rem); margin: 8px 0 16px; max-width: 34ch; }
+    .controls { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+    .hint { font-size: .9rem; color: var(--mute); text-decoration: none; margin-left: auto; }
     .hint b { color: var(--gold); }
-    .stage { display: grid; grid-template-columns: 1fr 260px; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; background: var(--ink2); }
-    @media (max-width: 700px) { .stage { grid-template-columns: 1fr; } }
-    #chat { padding: 18px; min-height: 380px; max-height: 60vh; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
-    .msg { max-width: 85%; animation: rise .4s; }
-    .msg .who { font-size: 10px; margin-bottom: 3px; color: var(--mute); }
-    .msg .bub { padding: 8px 12px; border: 1px solid var(--line); border-radius: 3px 10px 10px 10px; font-size: 13px; background: #1c2634; }
-    .msg .why { font-size: 10px; color: var(--mute); margin-top: 4px; font-style: italic; }
-    .msg.buyer .who { color: var(--blue); }
-    .msg.seller { align-self: flex-end; }
-    .msg.seller .who { color: var(--gold); }
-    .msg.seller .bub { background: #241f16; border-color: #a8792f; border-radius: 10px 3px 10px 10px; }
-    .msg.sys { align-self: center; text-align: center; }
-    .msg.sys .bub { color: var(--green); border-color: var(--green); background: rgba(78, 201, 168, .07); font-size: 12px; }
-    .msg.bad .bub { color: var(--red); border-color: var(--red); background: rgba(229, 103, 79, .07); }
-    @keyframes rise { from { opacity: 0; transform: translateY(6px); } }
-    aside { border-left: 1px solid var(--line); padding: 18px; background: #11161f; }
-    h4 { font-size: 10px; letter-spacing: .15em; color: var(--mute); margin-bottom: 12px; }
-    h4.sep { margin-top: 20px; }
-    .acct { margin-bottom: 12px; font-size: 12px; }
-    .acct .nm { color: var(--mute); }
-    .acct .val { font-size: 15px; font-weight: 700; }
-    .acct .esc, .acct .lbl { font-size: 10px; color: var(--mute); }
-    .acct .scenery { color: var(--gold); opacity: .75; }
-    .who-blue { color: var(--blue); }
-    #approval { border: 1px solid var(--gold); border-radius: 5px; padding: 14px; margin-top: 14px; background: #241f16; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-    #approval p { font-size: 13px; width: 100%; margin-bottom: 6px; }
-    #approval input { width: 220px; padding: 7px; }
+    .stage { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 16px; margin-top: 18px; align-items: start; }
+    @media (max-width: 900px) { .stage { grid-template-columns: 1fr; } }
+    .feed { min-height: 420px; max-height: 68vh; }
+    aside { background: var(--ink2); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; display: grid; gap: 12px; align-content: start; }
+    aside .sep { margin-top: 10px; padding-top: 14px; border-top: 1px solid var(--line); }
+    .acct .nm { color: var(--mute); font-size: .8rem; }
+    .acct .val { font-size: 1.35rem; font-weight: 700; }
+    .acct .esc, .acct .lbl { font-size: .8rem; color: var(--mute); display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .acct .scenery { color: var(--gold); opacity: .8; }
+    .azul { color: var(--blue); }
+    .approval { margin-top: 16px; }
+    .approval input { width: 260px; }
   `,
 })
 export class Arena {
   readonly market = inject(Market);
+  readonly plata = plata;
   readonly note = signal('');
   private chat = viewChild<ElementRef<HTMLDivElement>>('chat');
 

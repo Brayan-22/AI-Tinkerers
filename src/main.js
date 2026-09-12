@@ -19,7 +19,7 @@ import { descubrir, exaKey, cityOf } from './adapters/discovery.exa.js';
 import { telegramChannel } from './adapters/channel.telegram.js';
 import { ambiguousChannel } from './adapters/channel.ambiguous.js';
 import { humanBrain } from './adapters/brain.human.js';
-import { extraerPedido } from './adapters/brain.llm.js';
+import { extraerPedido, emparejarItem } from './adapters/brain.llm.js';
 import { slackChannel } from './adapters/channel.slack.js';
 import { STRATEGIES, makeAttacker } from './adapters/brain.attackers.js';
 import { incomingTransfers, withdraw, anchor } from './adapters/chain.base-sepolia.js';
@@ -27,7 +27,20 @@ import { incomingTransfers, withdraw, anchor } from './adapters/chain.base-sepol
 const PORT = env('PORT', 3000);
 const WEB = env('WEB_DIR', new URL('../web/dist/web/browser', import.meta.url).pathname);
 const BASE = env('PUBLIC_URL', `http://localhost:${PORT}`);
-const PRESUPUESTO_DEMO = 50000; // al que no depositó, el mercado le presta para probar
+// Al que no depositó, el mercado le presta para probar. Generoso a propósito:
+// en una compra de demostración el control es el botón de aprobar, no un
+// presupuesto de juguete que descarta cotizaciones legítimas.
+const PRESUPUESTO_DEMO = 1e9;
+const comprasActivas = new Map(); // canal -> qué está cotizando ahora mismo
+
+// Lo que alguien escribe no siempre es un pedido. "Sí encontraste algo" no es
+// una orden de compra, y abrir una cotización por cada mensaje es ruido.
+const pedidoUtil = (item) => {
+  const t = String(item ?? '').trim();
+  return t.length >= 3
+    && !/^[\d.,\s$]+$/.test(t)
+    && !/^(qué|que|lo)\s|producto|art[íi]culo|no s[ée]/i.test(t);
+};
 
 const store = openStore();
 const remote = remoteAgents();
@@ -63,13 +76,20 @@ const SEMILLA = [
   { name: 'PACK-MIA', owner: 'Miami Packaging', city: 'Miami', country: 'US', lat: 25.761, lon: -80.191, item: 'cajas de cartón', leadDays: 5, minPrice: 95 },
 ];
 
+// Utilería, apagada por defecto. Un mercado de verdad empieza vacío: los
+// proveedores son los que se registraron. Con CATALOGO_DEMO=1 entran estos
+// nueve inventados, marcados como demo en el catálogo y en la pantalla, para
+// poder enseñar el flujo sin depender de que alguien esté del otro lado.
 function sembrar() {
-  if (store.catalog().length) return;
+  if (!env('CATALOGO_DEMO', '')) return;
+  // listSupply es un upsert, así que repetir la siembra no duplica nada. No se
+  // salta porque ya haya proveedores reales: convivir es justo el punto.
   for (const s of SEMILLA) {
     store.recordAgent(s.name, s.owner);
     store.placeAgent(s.name, s);
-    store.listSupply(s.name, s);
+    store.listSupply(s.name, { ...s, source: 'demo' });
   }
+  console.log(`   catálogo: ${SEMILLA.length} proveedores de utilería (CATALOGO_DEMO=1)`);
 }
 sembrar();
 
@@ -272,7 +292,23 @@ async function comprar(id, demand, funded, canal = {}) {
 
   // 2. Armar la mesa. El que no tiene piso de precio queda en el mapa pero
   //    fuera de la negociación: no se le inventa una cotización.
-  const proveedores = store.search(demand.item).filter((p) => p.minPrice > 0 || p.telegram);
+  let proveedores = store.search(demand.item).filter((p) => p.minPrice > 0 || p.telegram);
+
+  // Si el texto no pega, que entienda: el modelo mira el catálogo entero y
+  // dice cuáles son el mismo producto dicho de otra forma.
+  if (!proveedores.length && llmKey()) {
+    const items = [...new Set(store.catalog().map((c) => c.item))];
+    const coinciden = await emparejarItem(demand.item, items);
+    if (coinciden.length) {
+      proveedores = store.catalog()
+        .filter((c) => coinciden.includes(c.item))
+        .filter((p) => p.minPrice > 0 || p.telegram);
+      if (proveedores.length) {
+        anunciar({ type: 'match_semantico', rfq: id, item: demand.item, como: coinciden });
+      }
+    }
+  }
+
   if (!proveedores.length) {
     publish({ type: 'rfq_empty', rfq: id, item: demand.item, cotizadas: 0, descartadas: [], reason: 'ningún proveedor con precio' });
     return;
@@ -337,6 +373,7 @@ async function comprar(id, demand, funded, canal = {}) {
     sheet: deal.sheet, anchor: acta, quotes,
     buyerOwner: demand.owner, sellerOwner: proveedor?.owner,
     custody: { [deal.buyer]: notary.custodyOf(deal.buyer), [deal.seller]: notary.custodyOf(deal.seller) },
+    base: BASE,
   });
   store.saveContract(deal.id, documento, deal.sheet);
   const url = `${BASE}/api/contract/${deal.id}`;
@@ -428,11 +465,27 @@ async function mensajeDeTelegram(texto, quien) {
   // /vendo, /vender, /venta o simplemente "vendo …": lo que la gente escribe.
   const m = t.match(/^\/?(?:vendo|vender|venta|ofrezco)\s+(.+?)(?:\s+en\s+([^,.]+))?\s*$/i);
   if (!m) {
+    // A un proveedor ya registrado no se le contesta "dime qué vendes": está
+    // hablando de un negocio, no dándose de alta. Esto pasa cuando sigue
+    // escribiendo después de que la ronda de cotización ya cerró.
+    const mias = store.listingsOf(name);
+    if (mias.length) {
+      return telegram.decir(quien.chat,
+        `Gracias. Ya tengo tu cotización y sigo comparando; si ganas te llega el contrato firmado.\n\n`
+        + `_Cuando alguien pida ${mias.map((x) => `*${x.item}*`).join(' o ')} te escribo por acá._\n`
+        + `/mis para ver lo tuyo · /ayuda para el resumen`);
+    }
     return telegram.decir(quien.chat,
       'No te entendí. Dime qué vendes así:\n`/vendo computadores`\n\n/ayuda si quieres el resumen completo.');
   }
 
-  const item = m[1].trim().slice(0, 60);
+  // "vendo sillas de oficina $300.000" registra "sillas de oficina": fuera el
+  // verbo repetido y el precio, que no son parte del producto.
+  const item = m[1]
+    .replace(/^(?:vendo|vender|venta|ofrezco)\s+/i, '')
+    .replace(/\$\s?[\d.,]+.*$/, '')
+    .replace(/\s+(a|por)\s+[\d.,]+.*$/i, '')
+    .trim().slice(0, 60);
   let donde = cityOf(m[2] ?? '') ?? cityOf(t);
 
   if (!donde) {
@@ -462,9 +515,18 @@ async function mensajeDeTelegram(texto, quien) {
 const slack = slackChannel({ onEvent: publish, onDemand: pedidoDeSlack });
 
 async function pedidoDeSlack(texto, donde) {
+  // Una compra a la vez por conversación. Si no, cada mensaje del hilo abre
+  // otra cotización y al proveedor le llegan tres mensajes por lo mismo.
+  const enCurso = comprasActivas.get(donde.channel);
+  if (enCurso) {
+    return slack.decir(donde, `Voy en eso: estoy cotizando *${enCurso}* con varios proveedores. Te aviso apenas tenga la mejor.`);
+  }
+
   const pedido = await extraerPedido(texto);
-  if (!pedido.item) {
-    return slack.decir(donde, 'No entendí qué necesitas. Escríbelo así: *necesito 200 botellas de agua para el viernes, máximo $1.500 c/u*');
+  if (!pedidoUtil(pedido.item)) {
+    return slack.decir(donde,
+      'No entendí qué necesitas comprar. Dímelo así:\n'
+      + '_necesito 12 sillas de oficina para el viernes, máximo $200.000 cada una_');
   }
 
   const perfil = (await slack.quienEs(donde.user).catch(() => null)) ?? {};
@@ -474,11 +536,15 @@ async function pedidoDeSlack(texto, donde) {
 
   // Contexto del canal: lo que aquí ya se compró antes.
   const ultima = store.lastDealIn(donde.channel, pedido.item);
-  const techo = pedido.maxPrice ?? (ultima ? Math.round(ultima.price * 1.15) : 1e6);
+  // Si no dijo techo y no hay historial, no se inventa uno: sin techo, y el
+  // humano decide con el botón. Inventarlo y luego descartar por él es peor.
+  const techo = pedido.maxPrice ?? (ultima ? Math.round(ultima.price * 1.15) : null);
 
   await slack.decir(donde,
     `Entendido: *${pedido.qty} × ${pedido.item}*, entrega en ${pedido.maxLeadDays} días, `
-    + `techo $${techo.toLocaleString('es-CO')} por unidad${pedido.maxPrice ? '' : ' (estimado)'}.`
+    + (techo
+      ? `techo $${techo.toLocaleString('es-CO')} por unidad${pedido.maxPrice ? '' : ' (estimado de tu última compra)'}.`
+      : 'sin techo de precio: te traigo la mejor y decides tú.')
     + (ultima ? `
 _La última vez este canal pagó $${ultima.price.toLocaleString('es-CO')} a ${ultima.seller}._` : '')
     + `
@@ -495,11 +561,14 @@ Voy a cotizar con varios proveedores y vuelvo con el mejor.`);
     brain: pensando(askBrain),
   };
   store.recordAgent(buyer, quien);
+  comprasActivas.set(donde.channel, pedido.item);
 
   comprar(id, demand, saldo !== null, {
     sink: slack.reporte(donde),
     approve: (req) => slack.approve(req, donde),
-  }).catch((e) => slack.decir(donde, `Se me cayó la compra: ${e.message}`));
+  })
+    .catch((e) => slack.decir(donde, `Se me cayó la compra: ${e.message}`))
+    .finally(() => comprasActivas.delete(donde.channel));
 }
 
 // ── La arena (el coliseo del guardián) ─────────────────────────────────────
