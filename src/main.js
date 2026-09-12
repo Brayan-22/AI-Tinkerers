@@ -268,7 +268,7 @@ const sendBoard = () => publish({ type: 'leaderboard', board: boardRows() });
 // ── La compra: cotizar a varios, adjudicar a uno, firmar y entregar copia ──
 async function comprar(id, demand, funded, canal = {}) {
   // 1. Buscar proveedores de verdad en la web y sacar la referencia de precio.
-  const referencia = await descubrirProveedores(id, demand);
+  const referencia = await descubrirProveedores(id, demand, canal.sink);
 
   // 2. Armar la mesa. El que no tiene piso de precio queda en el mapa pero
   //    fuera de la negociación: no se le inventa una cotización.
@@ -303,6 +303,9 @@ async function comprar(id, demand, funded, canal = {}) {
   const history = reales.length >= 3 ? reales : [...reales, ...(referencia?.prices ?? [])];
 
   const espejoAmbiguous = ambiguous.activo() ? ambiguous.registro(demand) : null;
+  // Todo lo de esta compra sale por acá. Antes, lo posterior al trato se
+  // difundía solo por websocket y ni el hilo ni el registro lo veían.
+  const anunciar = (ev) => { publish(ev); canal.sink?.(ev); espejoAmbiguous?.(ev); };
 
   const rfq = new Rfq({
     id, demand, suppliers, notary,
@@ -314,7 +317,7 @@ async function comprar(id, demand, funded, canal = {}) {
       ?? (demand.mode === 'supervised'
         ? (req) => approvals.approve({ ...req, email: demand.email, owner: demand.owner })
         : undefined),
-    onEvent: (ev) => { publish(ev); canal.sink?.(ev); espejoAmbiguous?.(ev); },
+    onEvent: anunciar,
   });
 
   const { deal, quotes } = await rfq.run();
@@ -327,7 +330,7 @@ async function comprar(id, demand, funded, canal = {}) {
   }
 
   const acta = await anchor(deal.sheet.chainHead).catch((e) => ({ error: e.message }));
-  publish({ type: 'notarized', rfq: id, ...acta });
+  anunciar({ type: 'notarized', rfq: id, ...acta });
 
   const proveedor = suppliers.find((s) => s.name === deal.seller);
   const documento = renderContract({
@@ -345,18 +348,19 @@ async function comprar(id, demand, funded, canal = {}) {
            <p><a href="${url}">Ver el contrato firmado</a></p>`,
   }).catch(() => ({}));
 
-  publish({ type: 'contract', rfq: id, dealId: deal.id, url, buyer: demand.buyer, seller: deal.seller, funded });
+  anunciar({ type: 'contract', rfq: id, dealId: deal.id, url, buyer: demand.buyer, seller: deal.seller, funded });
 }
 
 // Descubrimiento con Exa: proveedores reales al catálogo y al mapa, y una
 // referencia de precio citada para el guardián.
-async function descubrirProveedores(id, demand) {
+async function descubrirProveedores(id, demand, sink) {
   if (!exaKey()) return null;
-  publish({ type: 'discovering', rfq: id, item: demand.item, place: demand.place });
+  const avisar = (ev) => { publish(ev); sink?.(ev); };
+  avisar({ type: 'discovering', rfq: id, item: demand.item, place: demand.place });
 
   const { suppliers, market, error } = await descubrir({ item: demand.item, place: demand.place })
     .catch((e) => ({ suppliers: [], market: null, error: e.message }));
-  if (error) publish({ type: 'discovery_failed', rfq: id, reason: error });
+  if (error) avisar({ type: 'discovery_failed', rfq: id, reason: error });
 
   const nuevos = [];
   for (const s of suppliers) {
@@ -368,8 +372,8 @@ async function descubrirProveedores(id, demand) {
     store.listSupply(s.seller, { item: demand.item, leadDays: s.leadDays, minPrice, source: 'exa', url: s.url });
     nuevos.push({ seller: s.seller, owner: s.owner, city: s.city, url: s.url, minPrice, simulado: true });
   }
-  if (nuevos.length) publish({ type: 'discovered', rfq: id, item: demand.item, suppliers: nuevos });
-  if (market?.median) publish({ type: 'market_reference', rfq: id, item: demand.item, median: market.median, sources: market.sources });
+  if (nuevos.length) avisar({ type: 'discovered', rfq: id, item: demand.item, suppliers: nuevos });
+  if (market?.median) avisar({ type: 'market_reference', rfq: id, item: demand.item, median: market.median, sources: market.sources });
   return market;
 }
 
