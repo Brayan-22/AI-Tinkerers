@@ -14,7 +14,7 @@ import { secret, env } from './adapters/secrets.js';
 import { controlGate } from './adapters/control.js';
 import { renderContract } from './adapters/contract.html.js';
 import { mockBrain, supplierBrain, askBrain } from './adapters/brain.mock.js';
-import { llmBrain, llmKey } from './adapters/brain.llm.js';
+import { llmBrain, llmKey, proveedores } from './adapters/brain.llm.js';
 import { descubrir, exaKey, cityOf } from './adapters/discovery.exa.js';
 import { telegramChannel } from './adapters/channel.telegram.js';
 import { ambiguousChannel } from './adapters/channel.ambiguous.js';
@@ -620,7 +620,8 @@ wss.on('connection', (ws) => {
 
 server.listen(PORT, async () => {
   console.log(`mercadia → ${BASE}  |  agentes: ws ${BASE.replace('http', 'ws')}/ws`);
-  console.log(`   modelo: ${llmKey() ? 'sí' : 'no (cerebros deterministas)'}  ·  exa: ${exaKey() ? 'sí' : 'no'}`);
+  const cadena = proveedores().map((p) => `${p.name} (${p.model})`).join(' → ') || 'ninguno';
+  console.log(`   modelo: ${cadena} → determinista  ·  exa: ${exaKey() ? 'sí' : 'no'}`);
   console.log(`   controles: ${mando.exige ? 'con token (usa /arena?t=…)' : 'ABIERTOS (sin CONTROL_TOKEN: solo para local)'}`);
   if (ambiguous.activo()) {
     const r = await ambiguous.conectar();

@@ -123,3 +123,14 @@ test('llm: si OpenAI falla, sigue con OpenRouter, y solo después con el determi
   globalThis.fetch = async () => { throw new Error('red caída'); };
   assert.equal(await completar([{ role: 'user', content: 'hola' }], { providers }), null, 'sin proveedor vivo devuelve null y no lanza');
 });
+
+test('llm: un vendedor no puede ofertar ni un comprador cotizar', async () => {
+  const brain = llmBrain(fallback, { key: 'x' });
+  globalThis.fetch = async () => ({ ok: true, json: async () => ({ choices: [{ message: { content: '{"text":"te lo dejo","reason":"cierro","action":{"type":"offer","price":41,"qty":100}}' } }] }) });
+  const v = await brain({ name: 'S', role: 'seller', qty: 100, minPrice: 41 }, { round: 1 });
+  assert.equal(v.text, 'respaldo', 'ofertar compromete fondos que el vendedor no tiene: lo expulsarían');
+
+  globalThis.fetch = async () => ({ ok: true, json: async () => ({ choices: [{ message: { content: '{"text":"cotizo","reason":"x","action":{"type":"quote","price":41,"qty":100}}' } }] }) });
+  const c = await brain({ name: 'B', role: 'buyer', qty: 100, maxPrice: 45 }, { round: 1 });
+  assert.equal(c.text, 'respaldo', 'cotizar es del vendedor');
+});

@@ -481,8 +481,8 @@ scripts lo cargan solos y `npm run estado` te dice qué quedó prendido.
 
 | llave | dónde | si falta |
 | --- | --- | --- |
-| `OPENAI_API_KEY` | platform.openai.com/api-keys | la negociación corre determinista |
-| `OPENROUTER_API_KEY` | openrouter.ai/keys | sin respaldo si OpenAI falla |
+| `DEEPINFRA_API_KEY` | deepinfra.com/dash/api_keys | la negociación corre determinista |
+| `OPENROUTER_API_KEY` | openrouter.ai/keys | sin respaldo si DeepInfra falla |
 | `SLACK_APP_TOKEN` · `SLACK_BOT_TOKEN` | api.slack.com/apps, ver abajo | no hay canal del comprador |
 | `TELEGRAM_BOT_TOKEN` | @BotFather → `/newbot` | no hay proveedores humanos |
 | `EXA_API_KEY` | dashboard.exa.ai | solo el catálogo sembrado |
@@ -494,7 +494,27 @@ scripts lo cargan solos y `npm run estado` te dice qué quedó prendido.
 
 Opcionales que no están en el ejemplo porque casi nunca se tocan:
 `APPROVAL_TTL_MS` (10 min por defecto), `DB_PATH`, `DEPOSITS_FROM_BLOCK`,
-`WALLETS_FILE`, `AMBIGUOUS_MCP_URL`, `OPENAI_MODEL`, `LLM_MODEL`.
+`WALLETS_FILE`, `AMBIGUOUS_MCP_URL`, `DEEPINFRA_MODEL`, `LLM_MODEL`.
+
+### El modelo
+
+DeepInfra primero, OpenRouter de respaldo, y cerebros deterministas si los dos
+fallan. Medido con el prompt real de negociación, tres tiradas cada uno:
+
+| modelo (OpenRouter) | latencia | JSON válido |
+| --- | --- | --- |
+| `google/gemini-2.5-flash-lite` | 1.3 s | 3/3 |
+| `meta-llama/llama-3.3-70b-instruct` | 1.2 s | 3/3 |
+| `qwen/qwen3-30b-a3b` | 0.6 s | 2/3 |
+| `mistralai/mistral-nemo` | 1.3 s | 3/3 |
+
+Por defecto va `google/gemini-2.5-flash-lite`: el más barato de los que
+acertaron las tres veces. El más rápido falla una de cada tres y ahí la mesa
+cae al cerebro determinista, que es peor negociador pero nunca se equivoca.
+
+El mandato no se negocia con el modelo. Si propone un precio fuera del techo o
+del piso, o si un vendedor intenta ofertar (que compromete fondos y haría que
+el guardián lo expulse), se descarta su respuesta y juega el determinista.
 
 ### La app de Slack, paso a paso
 

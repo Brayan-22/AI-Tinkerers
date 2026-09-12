@@ -35,7 +35,7 @@ if ! grep -qE "^CONTROL_TOKEN=.+" .env; then
   echo "     la pantalla de operación entra por  <url>/arena?t=$NUEVO"
 fi
 SECRETOS=()
-for VAR in OPENAI_API_KEY OPENROUTER_API_KEY SLACK_APP_TOKEN SLACK_BOT_TOKEN \
+for VAR in DEEPINFRA_API_KEY OPENROUTER_API_KEY SLACK_APP_TOKEN SLACK_BOT_TOKEN \
            TELEGRAM_BOT_TOKEN EXA_API_KEY AMBIGUOUS_API_KEY MAIL_API_KEY \
            APPROVAL_SECRET CONTROL_TOKEN; do
   VALOR="$(grep -E "^${VAR}=" .env | head -1 | cut -d= -f2- | tr -d '"'"'"' \r')"

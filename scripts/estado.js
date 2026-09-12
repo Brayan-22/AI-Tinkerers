@@ -5,7 +5,7 @@ import { existsSync } from 'node:fs';
 const hay = (v) => Boolean(process.env[v]?.trim());
 const marca = (ok, texto, nota) => `  ${ok ? '✓' : '·'} ${texto.padEnd(26)} ${ok ? '' : nota}`;
 
-const modelo = hay('OPENAI_API_KEY') ? 'OpenAI' : hay('OPENROUTER_API_KEY') ? 'OpenRouter' : null;
+const modelo = hay('DEEPINFRA_API_KEY') ? 'DeepInfra' : hay('OPENROUTER_API_KEY') ? 'OpenRouter' : null;
 // El CLI de Ambiguous deja la llave en su propio archivo, no en el entorno.
 const ambiguous = hay('AMBIGUOUS_API_KEY') || existsSync(new URL('../.ambi/config.json', import.meta.url));
 const slack = hay('SLACK_APP_TOKEN') && hay('SLACK_BOT_TOKEN');
@@ -14,7 +14,7 @@ const wallets = existsSync(process.env.WALLETS_FILE ?? new URL('../wallets.json'
 
 console.log('\nMercadia · estado\n');
 console.log('  LO QUE DEFINE LA ENTREGA');
-console.log(marca(Boolean(modelo), `cerebro (${modelo ?? 'determinista'})`, 'sin OPENAI_API_KEY ni OPENROUTER_API_KEY'));
+console.log(marca(Boolean(modelo), `cerebro (${modelo ?? 'determinista'})`, 'sin DEEPINFRA_API_KEY ni OPENROUTER_API_KEY'));
 console.log(marca(slack, 'slack (comprador)', 'faltan SLACK_APP_TOKEN y SLACK_BOT_TOKEN'));
 console.log(marca(hay('TELEGRAM_BOT_TOKEN'), 'telegram (proveedores)', 'falta TELEGRAM_BOT_TOKEN'));
 console.log('\n  SUMAN PUNTOS, NO BLOQUEAN');

@@ -11,22 +11,21 @@
 import { secret, env } from './secrets.js';
 
 const ACCIONES = ['quote', 'offer', 'accept', 'talk', 'reject', 'walk_away'];
-const MODELO = env('LLM_MODEL', 'openai/gpt-4o-mini');
+const MODELO = env('LLM_MODEL', 'google/gemini-2.5-flash-lite');
 
 export function proveedores() {
-  const lista = [
+  return [
     {
-      name: 'openai', key: secret('OPENAI_API_KEY'),
-      url: env('OPENAI_BASE_URL', 'https://api.openai.com/v1/chat/completions'),
-      model: env('OPENAI_MODEL', 'gpt-4o-mini'),
+      name: 'deepinfra', key: secret('DEEPINFRA_API_KEY'),
+      url: env('DEEPINFRA_BASE_URL', 'https://api.deepinfra.com/v1/openai/chat/completions'),
+      model: env('DEEPINFRA_MODEL', 'Qwen/Qwen3-30B-A3B'),
     },
     {
       name: 'openrouter', key: secret('OPENROUTER_API_KEY'),
       url: env('LLM_BASE_URL', 'https://openrouter.ai/api/v1/chat/completions'),
       model: MODELO,
     },
-  ];
-  return lista.filter((p) => p.key);
+  ].filter((p) => p.key);
 }
 
 export function llmKey() {
@@ -119,6 +118,10 @@ export function llmBrain(fallback, { key, model = MODELO, url, providers, timeou
       if (!accion) return fallback(agent, view);
       if (accion.action.type === 'offer' && agent.maxPrice && accion.action.price > agent.maxPrice) return fallback(agent, view);
       if (accion.action.type === 'quote' && agent.minPrice && accion.action.price < agent.minPrice) return fallback(agent, view);
+      // Ofertar compromete fondos: si un vendedor lo hace, el guardián lo
+      // expulsa por ofertar sin plata. Cotizar es del vendedor, no del comprador.
+      if (accion.action.type === 'offer' && agent.role === 'seller') return fallback(agent, view);
+      if (accion.action.type === 'quote' && agent.role === 'buyer') return fallback(agent, view);
       if (accion.action.qty === undefined && ['offer', 'quote'].includes(accion.action.type)) accion.action.qty = agent.qty;
       if (accion.action.leadDays === undefined && agent.leadDays) accion.action.leadDays = agent.leadDays;
       return accion;
