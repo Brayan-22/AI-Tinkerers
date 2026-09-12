@@ -19,7 +19,7 @@ import { descubrir, exaKey, cityOf } from './adapters/discovery.exa.js';
 import { telegramChannel } from './adapters/channel.telegram.js';
 import { ambiguousChannel } from './adapters/channel.ambiguous.js';
 import { humanBrain } from './adapters/brain.human.js';
-import { extraerPedido } from './adapters/brain.llm.js';
+import { extraerPedido, emparejarItem } from './adapters/brain.llm.js';
 import { slackChannel } from './adapters/channel.slack.js';
 import { STRATEGIES, makeAttacker } from './adapters/brain.attackers.js';
 import { incomingTransfers, withdraw, anchor } from './adapters/chain.base-sepolia.js';
@@ -292,7 +292,23 @@ async function comprar(id, demand, funded, canal = {}) {
 
   // 2. Armar la mesa. El que no tiene piso de precio queda en el mapa pero
   //    fuera de la negociación: no se le inventa una cotización.
-  const proveedores = store.search(demand.item).filter((p) => p.minPrice > 0 || p.telegram);
+  let proveedores = store.search(demand.item).filter((p) => p.minPrice > 0 || p.telegram);
+
+  // Si el texto no pega, que entienda: el modelo mira el catálogo entero y
+  // dice cuáles son el mismo producto dicho de otra forma.
+  if (!proveedores.length && llmKey()) {
+    const items = [...new Set(store.catalog().map((c) => c.item))];
+    const coinciden = await emparejarItem(demand.item, items);
+    if (coinciden.length) {
+      proveedores = store.catalog()
+        .filter((c) => coinciden.includes(c.item))
+        .filter((p) => p.minPrice > 0 || p.telegram);
+      if (proveedores.length) {
+        anunciar({ type: 'match_semantico', rfq: id, item: demand.item, como: coinciden });
+      }
+    }
+  }
+
   if (!proveedores.length) {
     publish({ type: 'rfq_empty', rfq: id, item: demand.item, cotizadas: 0, descartadas: [], reason: 'ningún proveedor con precio' });
     return;
@@ -453,7 +469,13 @@ async function mensajeDeTelegram(texto, quien) {
       'No te entendí. Dime qué vendes así:\n`/vendo computadores`\n\n/ayuda si quieres el resumen completo.');
   }
 
-  const item = m[1].trim().slice(0, 60);
+  // "vendo sillas de oficina $300.000" registra "sillas de oficina": fuera el
+  // verbo repetido y el precio, que no son parte del producto.
+  const item = m[1]
+    .replace(/^(?:vendo|vender|venta|ofrezco)\s+/i, '')
+    .replace(/\$\s?[\d.,]+.*$/, '')
+    .replace(/\s+(a|por)\s+[\d.,]+.*$/i, '')
+    .trim().slice(0, 60);
   let donde = cityOf(m[2] ?? '') ?? cityOf(t);
 
   if (!donde) {

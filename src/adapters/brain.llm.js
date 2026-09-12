@@ -241,7 +241,7 @@ export async function extraerPedido(texto, { providers = proveedores() } = {}) {
     const r = await completar([{
       role: 'system',
       content: `Hoy es ${new Date().toISOString().slice(0, 10)}. Extrae el pedido de compra y responde SOLO JSON:
-{"item":"qué quiere comprar, en singular y sin cantidad","qty":number,"maxPrice":number o null,"maxLeadDays":number}
+{"item":"qué quiere comprar, tal como lo diría, sin la cantidad","qty":number,"maxPrice":number o null,"maxLeadDays":number}
 maxPrice es por unidad. maxLeadDays son días desde hoy hasta la entrega.`,
     }, { role: 'user', content: String(texto).slice(0, 500) }], { providers, temperature: 0, maxTokens: 150, timeoutMs: 10_000 });
     if (!r) return { ...reglas, via: 'reglas' };
@@ -257,5 +257,35 @@ maxPrice es por unidad. maxLeadDays son días desde hoy hasta la entrega.`,
     };
   } catch {
     return { ...reglas, via: 'reglas' };
+  }
+}
+
+// ── Entender que "sillas" y "muebles de oficina" son lo mismo ──────────────
+// El texto exacto no alcanza: quien compra no usa las palabras de quien vende.
+// El catálogo es pequeño, así que se le pasa entero al modelo y decide cuáles
+// son el mismo producto. Si no hay modelo o contesta mal, no pasa nada: el
+// que llama ya trae su coincidencia por texto.
+export async function emparejarItem(consulta, items, { providers = proveedores() } = {}) {
+  const lista = [...new Set(items)].filter(Boolean).slice(0, 60);
+  if (!providers.length || !lista.length) return [];
+  try {
+    const r = await completar([{
+      role: 'system',
+      content: `Alguien quiere comprar algo. Te doy el catálogo de un mercado.
+Devuelve SOLO los productos del catálogo que sean ESE MISMO producto, aunque
+se digan distinto (singular/plural, sinónimos, marcas, variantes).
+No incluyas productos que solo estén relacionados: "sillas" NO es "escritorios".
+Responde SOLO JSON: {"coinciden":["texto exacto del catálogo", ...]}`,
+    }, {
+      role: 'user',
+      content: `Quiere comprar: ${String(consulta).slice(0, 80)}\nCatálogo:\n${lista.map((i) => `- ${i}`).join('\n')}`,
+    }], { providers, temperature: 0, maxTokens: 200, timeoutMs: 9000 });
+    if (!r) return [];
+    const bruto = String(r.texto);
+    const json = JSON.parse(bruto.slice(bruto.indexOf('{'), bruto.lastIndexOf('}') + 1));
+    // Solo se acepta lo que existe de verdad en el catálogo.
+    return (json?.coinciden ?? []).filter((x) => lista.includes(x));
+  } catch {
+    return [];
   }
 }

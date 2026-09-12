@@ -145,6 +145,8 @@ export function slackChannel({
           case 'humans_asked':
             return decir(donde, `📲 Le escribí a *${ev.count}* ${ev.count === 1 ? 'proveedor' : 'proveedores'} de verdad a su celular: `
               + `${ev.who.join(', ')}. Están contestando en texto libre, no son simulaciones.`);
+          case 'match_semantico':
+            return decir(donde, `No tenía *${ev.item}* con ese nombre exacto, pero en el catálogo eso es ${ev.como.map((c) => `*${c}*`).join(' o ')}. Sigo con eso.`);
           case 'quote_received':
             cotizadas.push(ev);
             return decir(donde, `💬 *${ev.owner ?? ev.seller}* cotiza ${plata(ev.price)} · ${ev.leadDays} días\n_${ev.reason ?? ''}_`);
@@ -157,7 +159,9 @@ export function slackChannel({
           case 'exploitation_alert':
             return decir(donde, `🛑 *Te estaban esquilmando.* ${ev.reason}`);
           case 'rfq_empty':
-            return decir(donde, `Ninguna de las ${ev.cotizadas} cotizaciones sirve. No cerré nada.`);
+            return decir(donde, ev.cotizadas
+              ? `Ninguna de las ${ev.cotizadas} cotizaciones sirve. No cerré nada.`
+              : `No tengo proveedores de *${ev.item}* en el catálogo. Que alguien se registre escribiéndole al bot de Telegram: \`/vendo ${ev.item}\``);
           case 'award_failed':
             return decir(donde, `*${ev.seller}* se echó para atrás al final. No cerré nada.`);
           case 'awarded':
