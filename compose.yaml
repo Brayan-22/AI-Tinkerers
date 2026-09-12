@@ -1,15 +1,24 @@
-# Para desarrollo y para una sola máquina: construye y corre.
-#   docker compose up --build   →  http://localhost:3000
+# Una máquina, un comando. Las llaves salen del mismo .env de siempre:
+# compose lo lee solo para sustituir estas variables.
+#   cp .env.example .env  &&  docker compose up --build   →  http://localhost:3000
 services:
   mercadia:
     build: .
-    ports: ['3000:3000']
+    ports: ['${PORT:-3000}:3000']
     environment:
       PUBLIC_URL: ${PUBLIC_URL:-http://localhost:3000}
-      BASE_SEPOLIA_RPC: ${BASE_SEPOLIA_RPC:-https://sepolia.base.org}
-      APPROVAL_SECRET: ${APPROVAL_SECRET:-mercadia-dev}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      SLACK_APP_TOKEN: ${SLACK_APP_TOKEN:-}
+      SLACK_BOT_TOKEN: ${SLACK_BOT_TOKEN:-}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      EXA_API_KEY: ${EXA_API_KEY:-}
+      MARKET_PLACE: ${MARKET_PLACE:-Colombia}
+      AMBIGUOUS_API_KEY: ${AMBIGUOUS_API_KEY:-}
       MAIL_API_KEY: ${MAIL_API_KEY:-}
       MAIL_FROM: ${MAIL_FROM:-}
+      APPROVAL_SECRET: ${APPROVAL_SECRET:-mercadia-dev}
+      BASE_SEPOLIA_RPC: ${BASE_SEPOLIA_RPC:-https://sepolia.base.org}
     volumes:
       - data:/data                           # la base sobrevive al contenedor
       - ./wallets.json:/app/wallets.json:ro  # las llaves nunca entran a la imagen

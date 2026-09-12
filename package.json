@@ -4,16 +4,17 @@
   "description": "Mercado abierto de agentes con guardi\u00e1n determinista y liquidaci\u00f3n en Base Sepolia",
   "main": "src/main.js",
   "scripts": {
-    "start": "node src/main.js",
-    "dev": "node --watch src/main.js",
+    "start": "node --env-file-if-exists=.env src/main.js",
+    "dev": "node --watch --env-file-if-exists=.env src/main.js",
     "web": "npm --prefix web start",
     "test": "node --test test/*.test.js",
-    "wallets": "node scripts/make-wallets.js",
+    "wallets": "node --env-file-if-exists=.env scripts/make-wallets.js",
     "image": "docker build -t mercadia:latest .",
     "stack:up": "docker stack deploy -c stack.yml mercadia",
     "stack:down": "docker stack rm mercadia",
     "stack:logs": "docker service logs -f mercadia_app",
-    "ambiguous:tools": "node scripts/ambiguous-tools.js"
+    "ambiguous:tools": "node --env-file-if-exists=.env scripts/ambiguous-tools.js",
+    "estado": "node --env-file-if-exists=.env scripts/estado.js"
   },
   "keywords": [],
   "author": "",

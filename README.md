@@ -42,67 +42,52 @@ declarada · motor de cotizaciones en paralelo (RFQ) · catálogo, geolocalizaci
 y descubrimiento con Exa · autorización con timeout por correo y por Slack ·
 contrato HTML · adaptador de Slack (socket mode) · adaptador de Telegram y
 proveedor humano · cerebros con modelo (OpenAI → OpenRouter → determinista) ·
-tarjeta A2A · front Angular · Docker y stack · 78 pruebas.
+tarjeta A2A · front Angular · Docker y stack · 82 pruebas.
 
 Más del ochenta por ciento del código es de hoy, y lo que sobrevive de agosto
 quedó reescrito al moverlo al hexágono. El motor previo se declara como
 librería base; el proyecto es la mediación multicanal.
 
-## Correr
+## Poner a andar
 
 ```bash
 npm install
-npm run wallets              # llaves del escrow y de los agentes de la casa (una vez)
-npm run dev                  # backend en :3000
-npm --prefix web install     # una vez
-npm run web                  # front de Angular en :4200, con proxy a :3000
-npm test
+cp .env.example .env     # todas las llaves en un solo lado, con instrucciones dentro
+npm run estado           # qué quedó prendido y qué falta
+npm run wallets          # una vez, si no existe wallets.json
+npm run dev              # backend en :3000
 ```
 
-## Docker
-
-Una máquina, un comando:
+El front va en otra terminal:
 
 ```bash
-docker compose up --build            # → http://localhost:3000
+npm --prefix web install
+npm run web              # :4200, con proxy a :3000
 ```
 
-Con `docker stack` (swarm). `stack deploy` no construye imágenes ni lee `.env`,
-así que la imagen y los secretos se preparan antes:
+Todo junto en un contenedor, con el mismo `.env`:
 
 ```bash
-docker swarm init                                      # una vez
-npm run wallets                                        # si no tienes wallets.json
-npm run image                                          # docker build -t mercadia:latest .
-openssl rand -hex 32 | docker secret create mercadia_approval -
-docker secret create mercadia_wallets ./wallets.json
-npm run stack:up                                       # docker stack deploy -c stack.yml mercadia
-npm run stack:logs                                     # docker service logs -f mercadia_app
-npm run stack:down
+docker compose up --build      # → http://localhost:3000
 ```
 
-Las llaves y el secreto de las autorizaciones entran como **secretos de swarm**,
-montados en `/run/secrets`, no como variables de entorno: una variable se ve en
-`docker inspect`, un archivo montado no. El código acepta las dos formas
-(`VAR` o `VAR_FILE`).
+`npm test` corre las 82 pruebas sin necesitar ninguna llave.
 
-**Una sola réplica, a propósito.** El estado vive en un archivo SQLite y en la
-memoria del proceso: la arena, los turnos de los agentes, las autorizaciones
-abiertas esperando un clic. Con dos réplicas habría dos escritores del mismo
-archivo y la mitad de los websockets hablando con el proceso equivocado. Para
-escalar en horizontal hay que sacar ese estado afuera primero, y eso es otro
-trabajo, no una bandera en el `stack.yml`.
+### Qué necesitas según lo que quieras mostrar
 
-Con varios nodos hay que publicar la imagen en un registro: el nodo que levante
-el servicio tiene que poder bajarla.
+| camino | llaves | qué se ve |
+| --- | --- | --- |
+| **Demo completa** | modelo + Slack + Telegram | pides en Slack, tres celulares suenan, apruebas con un botón |
+| Compra desde la web | ninguna | el flujo completo de cotización, adjudicación y contrato |
+| Proveedores reales de la web | `EXA_API_KEY` | empresas que existen y precio de referencia con fuentes |
+| Registro en el workspace | `AMBIGUOUS_API_KEY` | cotizaciones, CRM, contrato a firma y correo |
 
-El contenedor no corre como root y trae healthcheck contra `/api/health`, que
-toca la base de verdad en vez de responder 200 a ciegas.
+Sin llaves nada se rompe: cada pieza que falta se apaga sola y el mercado
+sigue cerrando tratos. `npm run estado` te lo dice antes de arrancar.
 
-- **`/`** — el mercado: buscas, ves proveedores en el mapa, abres la compra y
-  miras a tu agente negociar en vivo.
-- **`/arena`** — el coliseo del guardián: ladrones contra el mercado.
-- **`/atacar`** — desde el celular, suelta tu agente ladrón.
+> **Antes de cualquier demo con Telegram:** cada proveedor tiene que mandarle
+> `/start` al bot. Un bot no puede escribir primero, así que sin ese paso no le
+> llega el mensaje a nadie.
 
 ## Dónde vive el agente
 
@@ -314,28 +299,19 @@ sobrevive al reinicio: sin ella el detector de explotación se queda ciego.
 
 ## Variables de entorno
 
-```
-BASE_SEPOLIA_RPC=    # opcional, default sepolia.base.org
-DEPOSITS_FROM_BLOCK= # opcional, bloque inicial para traer depósitos viejos
-DB_PATH=             # opcional, default ./data/mercadia.db
-PORT=                # opcional, default 3000
-PUBLIC_URL=          # opcional, base de los enlaces del correo
-MAIL_API_KEY=        # opcional (Resend). Sin esto el enlace sale en pantalla
-MAIL_FROM=           # remitente del correo
-APPROVAL_SECRET=     # firma de los enlaces de autorización
-WALLETS_FILE=        # opcional, ruta de wallets.json (en swarm, /run/secrets/wallets)
-APPROVAL_TTL_MS=     # opcional, default 10 minutos; vencido = no
-                     # los secretos aceptan VAR o VAR_FILE (Docker Swarm)
-OPENAI_API_KEY=      # cerebro principal (gpt-4o-mini por defecto)
-OPENROUTER_API_KEY=  # respaldo si OpenAI falla. Sin ninguna de las dos: deterministas
-OPENAI_MODEL=        # opcional, default gpt-4o-mini
-LLM_MODEL=           # opcional, modelo en OpenRouter, default openai/gpt-4o-mini
-EXA_API_KEY=         # descubrimiento de proveedores y referencia de precio
-SLACK_APP_TOKEN=     # xapp-… (App-Level Token con connections:write). Socket mode:
-                     # NO hace falta signing secret ni URL pública
-SLACK_BOT_TOKEN=     # xoxb-… scopes: chat:write, app_mentions:read, im:history, users:read
-TELEGRAM_BOT_TOKEN=  # el bot que habla con los proveedores (BotFather)
-MARKET_PLACE=        # opcional, dónde buscar proveedores. Default Colombia
-AMBIGUOUS_API_KEY=   # opcional: sistema de registro por MCP (track Ambiguous AI)
-AMBIGUOUS_MCP_URL=   # opcional, default https://app.ambiguous.ai/mcp
-```
+Todas viven en `.env`, y `.env.example` trae cada una comentada con dónde
+sacarla y qué se apaga si falta. Los scripts la cargan solos
+(`--env-file-if-exists`), así que no hay que exportar nada a mano.
+
+| bloque | variables | si falta |
+| --- | --- | --- |
+| cerebro | `OPENAI_API_KEY` · `OPENROUTER_API_KEY` | negocia determinista |
+| canales | `SLACK_APP_TOKEN` · `SLACK_BOT_TOKEN` · `TELEGRAM_BOT_TOKEN` | ese canal se apaga |
+| descubrimiento | `EXA_API_KEY` · `MARKET_PLACE` | solo el catálogo sembrado |
+| registro | `AMBIGUOUS_API_KEY` · `AMBIGUOUS_MCP_URL` | no queda huella en el workspace |
+| correo | `MAIL_API_KEY` · `MAIL_FROM` | el enlace sale en pantalla |
+| cadena | `BASE_SEPOLIA_RPC` · `DEPOSITS_FROM_BLOCK` · `WALLETS_FILE` | el hash existe, sin anclar |
+| servidor | `PORT` · `PUBLIC_URL` · `APPROVAL_SECRET` · `APPROVAL_TTL_MS` · `DB_PATH` | usa los valores por defecto |
+
+En swarm los secretos entran como archivo: cualquiera de arriba acepta
+`VAR_FILE` apuntando a `/run/secrets/…`.
