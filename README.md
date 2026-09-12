@@ -297,6 +297,49 @@ ubicaciones, tratos, contratos, eventos, reputación, direcciones probadas,
 depósitos acreditados, saldos y llaves en custodia. La historia de precios
 sobrevive al reinicio: sin ella el detector de explotación se queda ciego.
 
+## Serverless (Cloud Run)
+
+Sí, con una precisión: **serverless de contenedor, no de funciones.**
+
+Mercadia mantiene dos conexiones largas abiertas (el socket de Slack y el long
+polling de Telegram), espera minutos a que una persona conteste, y tiene un
+solo escritor de SQLite. Eso no cabe en una función por request. Sí cabe en
+Cloud Run, que es la misma imagen del compose:
+
+```bash
+PROYECTO=tu-proyecto ./deploy/cloudrun.sh
+```
+
+Tres banderas no son opcionales y están explicadas en el script:
+`--min-instances 1` para que el proceso exista aunque nadie entre,
+`--max-instances 1` por el escritor único y el estado en memoria, y
+`--no-cpu-throttling` porque sin eso Cloud Run estrangula la CPU entre
+requests y el trabajo de fondo se muere.
+
+Dos cosas que salen gratis: `/api/health` ya existe para las sondas, y los
+secretos entran como **archivo** desde Secret Manager, porque cualquier
+variable acepta `VAR_FILE`. Cero cambios de código.
+
+La base en `/tmp` es efímera. No rompe la demo, porque el catálogo se siembra
+al arrancar, pero el historial de precios del canal empieza de cero en cada
+reinicio. Para que persista: un bucket con Cloud Storage FUSE, o mover el
+store a Postgres.
+
+### Si de verdad quieres funciones
+
+Hay que cambiar tres cosas, y ninguna es trivial:
+
+| pieza | hoy | en funciones |
+| --- | --- | --- |
+| Slack | socket mode, sin URL pública | Events API por HTTP + verificar la firma |
+| Telegram | long polling | `setWebhook` a un endpoint público |
+| la aprobación | una promesa que se espera | estado durable: suspender y reanudar en el click |
+| la compra | minutos en un proceso | un motor de workflows durables (Trigger.dev) |
+| SQLite | archivo con un escritor | Postgres o Turso |
+
+El puerto `approve` del dominio aguanta el cambio sin tocarse, que es el punto
+del hexágono. Lo que hay que reescribir son los adaptadores y el arranque.
+
 ## Variables de entorno
 
 Todas viven en `.env`, y `.env.example` trae cada una comentada con dónde
