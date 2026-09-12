@@ -25,6 +25,100 @@ documentó en [Project Deal](https://www.anthropic.com/features/project-deal).
 existe y cómo se demuestra. Publicado en
 [claude.ai/code/artifact/5e740620](https://claude.ai/code/artifact/5e740620-2cdd-46e7-81db-fdcf756f57bb).
 
+## El problema
+
+Comprar insumos en una empresa pequeña es un trabajo manual y lento. Alguien
+abre WhatsApp, le escribe a cinco proveedores uno por uno, espera, anota los
+precios en una hoja, compara plazos, y decide. Nadie tiene una API. Nadie va a
+instalar un portal de compras. El precio justo no se sabe: se intuye.
+
+Y cuando ese trabajo se le delega a un agente aparece un problema más duro, el
+que Anthropic dejó abierto en [Project Deal](https://www.anthropic.com/features/project-deal):
+**dos agentes que negocian no tienen por qué ser honestos.** Uno puede ofertar
+plata que no tiene, cobrar un trato que nunca existió, hacerse pasar por otro,
+o —lo más difícil de ver— aprovechar que el agente del otro lado es más débil
+y cobrarle el triple sin que su dueño se entere.
+
+## Qué resolvimos
+
+**Una línea en el canal donde ya trabajas se convierte en varias negociaciones
+reales, en paralelo, con personas que no cambian nada de cómo trabajan.**
+
+| lo que antes era manual | lo que hace Mercadia |
+| --- | --- |
+| escribirle a cada proveedor, uno por uno | les escribe a todos a la vez, cada uno en su propio celular |
+| anotar precios en una hoja | convierte "te la dejo en 1.200 el jueves" en una cotización estructurada |
+| comparar a ojo | descarta por plazo, techo y presupuesto, diciendo la razón de cada descarte |
+| no saber si el precio es justo | compara contra lo que ese mismo canal ya pagó, y contra precios de la web |
+| confiar en la contraparte | escrow antes de ofertar, dos firmas criptográficas, expulsión por violación |
+| que el trato quede en un chat | contrato firmado por las dos partes, con el hash de la negociación anclado |
+
+El proveedor no instala nada, no crea cuenta y no sabe que habla con un agente.
+Contesta por Telegram como le contesta a cualquier cliente. **Ese es el punto:
+convertir un canal humano sin API en algo que se comporta como una API.**
+
+## Cómo funciona, en una pasada
+
+```
+1. pides           Slack: "necesito 200 botellas de agua para el viernes, máx $1.500"
+                   (o el formulario de la página: las dos puertas llaman al mismo motor)
+2. entiende        extrae producto, cantidad, techo y plazo — con modelo o por reglas
+3. arma la mesa    proveedores del catálogo + personas en Telegram + agentes por API
+                   + empresas que Exa encuentra en la web
+4. cotiza          a todos EN PARALELO, y regatea una ronda
+5. descarta        al que no llega a tiempo, se pasa del techo o no cabe en el presupuesto
+                   — con la razón escrita, siempre
+6. adjudica        el más barato que cumple; si empatan, el que entrega más rápido
+7. pregunta        botón en el hilo de Slack, o enlace firmado por correo (10 min y se cae)
+8. cierra          escrow → guardián → firma EIP-191 de las dos partes → liquidación
+9. entrega         contrato a comprador y proveedor, con el hash anclado en Base Sepolia
+```
+
+Cotizar y cerrar son dos fases separadas por una razón concreta: **cotizar no
+compromete fondos, cerrar sí.** Si el agente ofertara en paralelo a cinco
+proveedores comprometería cinco veces su plata y el guardián lo expulsaría por
+ofertar sin fondos.
+
+## Por qué está hecho así
+
+Cinco decisiones que explican casi todo el código:
+
+1. **El modelo negocia; el modelo nunca decide si se mueve la plata.** Toda
+   regla vinculante es determinista y vive en `src/market/`. El LLM puede
+   alucinar un precio: lo frena el guardián, no un prompt.
+2. **Hexagonal, y un test lo verifica.** `test/hexagon.test.js` falla si el
+   dominio importa infraestructura. En JavaScript no hay compilador que lo
+   imponga, así que la prueba es el compilador.
+3. **Todo falla suave.** Sin llave de modelo, sin Exa, sin Slack, sin Telegram
+   y sin cadena, el mercado sigue cerrando tratos. Cada pieza que falta se
+   apaga sola y lo dice al arrancar.
+4. **Primero la constancia, después el dinero.** El trato se registra antes de
+   liquidar, y el trato es clave primaria: un reintento no paga dos veces.
+5. **Casi sin dependencias.** Dos paquetes en el backend. SQLite, el runner de
+   pruebas, el servidor HTTP y `fetch` son de la biblioteca estándar de Node.
+
+## Tecnologías
+
+| capa | qué usamos | por qué |
+| --- | --- | --- |
+| backend | **Node 22+** sin framework | `node:sqlite`, `node:test`, `http` y `fetch` son stdlib: menos que instalar, menos que romperse |
+| firmas y cadena | **viem** + **Base Sepolia** (USDC) | firma EIP-191 de las dos partes y ancla del acta |
+| tiempo real | **ws** | API de agentes, pantalla en vivo y el socket de Slack |
+| datos | **SQLite** (`node:sqlite`) | un archivo, un volumen; el historial de precios sobrevive al reinicio |
+| front | **Angular 21** standalone con señales + **Leaflet** | sin NgRx ni módulos; el mapa muestra dónde está cada proveedor |
+| canal del comprador | **Slack** en Socket Mode | sin URL pública, sin túnel, sin signing secret |
+| canal del proveedor | **Telegram** por long polling | la persona no instala nada; contesta desde su celular |
+| cerebro | **DeepInfra** → **OpenRouter** → determinista | cadena con respaldo: si el modelo se cae, la mesa sigue |
+| descubrimiento | **Exa** | proveedores reales de la web y una referencia de precio citada |
+| registro | **Ambiguous AI** por **MCP** | cada compra deja rastro en el workspace del agente |
+| correo | **Resend** | autorización y contrato al comprador |
+| interoperabilidad | **A2A** (Agent Card) | otros agentes descubren el mercado y se conectan a vender |
+| despliegue | **Docker**, Compose, Swarm, **Cloud Run** | la misma imagen en los cuatro |
+
+**En números:** 477 líneas de dominio sin una sola operación de entrada/salida,
+1.841 de adaptadores, 1.034 de pruebas en 14 archivos, y 91 pruebas que corren
+sin necesitar ninguna credencial.
+
 ## Qué se construyó hoy y qué venía de antes
 
 Regla del evento: la funcionalidad central se construye durante el hackathon.
@@ -42,7 +136,7 @@ declarada · motor de cotizaciones en paralelo (RFQ) · catálogo, geolocalizaci
 y descubrimiento con Exa · autorización con timeout por correo y por Slack ·
 contrato HTML · adaptador de Slack (socket mode) · adaptador de Telegram y
 proveedor humano · cerebros con modelo (OpenAI → OpenRouter → determinista) ·
-tarjeta A2A · front Angular · Docker y stack · 85 pruebas.
+tarjeta A2A · front Angular · Docker y stack · 91 pruebas.
 
 Más del ochenta por ciento del código es de hoy, y lo que sobrevive de agosto
 quedó reescrito al moverlo al hexágono. El motor previo se declara como
@@ -75,7 +169,7 @@ Todo junto en un contenedor, con el mismo `.env`:
 docker compose up --build      # → http://localhost:3000
 ```
 
-`npm test` corre las 85 pruebas sin necesitar ninguna llave.
+`npm test` corre las 91 pruebas sin necesitar ninguna llave.
 
 ### Probar la idea en cinco minutos, con un solo token
 
