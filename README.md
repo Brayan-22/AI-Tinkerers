@@ -455,21 +455,51 @@ del hexágono. Lo que hay que reescribir son los adaptadores y el arranque.
 
 ## Variables de entorno
 
-Todas viven en `.env`, y `.env.example` trae cada una comentada con dónde
-sacarla y qué se apaga si falta. Los scripts la cargan solos
-(`--env-file-if-exists`), así que no hay que exportar nada a mano.
+Todas viven en `.env`. `cp .env.example .env` y llena lo que tengas: los
+scripts lo cargan solos y `npm run estado` te dice qué quedó prendido.
 
-| bloque | variables | si falta |
+### Dónde sacar cada llave
+
+| llave | dónde | si falta |
 | --- | --- | --- |
-| cerebro | `OPENAI_API_KEY` · `OPENROUTER_API_KEY` | negocia determinista |
-| canales | `SLACK_APP_TOKEN` · `SLACK_BOT_TOKEN` · `TELEGRAM_BOT_TOKEN` | ese canal se apaga |
-| descubrimiento | `EXA_API_KEY` · `MARKET_PLACE` | solo el catálogo sembrado |
-| registro | `AMBIGUOUS_API_KEY` · `AMBIGUOUS_MCP_URL` | no queda huella en el workspace |
-| correo | `MAIL_API_KEY` · `MAIL_FROM` | el enlace sale en pantalla |
-| dominio | `PUBLIC_URL` | los enlaces del correo apuntan a localhost |
-| cadena | `BASE_SEPOLIA_RPC` · `DEPOSITS_FROM_BLOCK` · `WALLETS_FILE` | el hash existe, sin anclar |
-| servidor | `PORT` · `PUBLIC_URL` · `APPROVAL_SECRET` · `APPROVAL_TTL_MS` · `DB_PATH` | usa los valores por defecto |
-| operación | `CONTROL_TOKEN` | **los controles quedan abiertos**: cualquiera aprueba |
+| `OPENAI_API_KEY` | platform.openai.com/api-keys | la negociación corre determinista |
+| `OPENROUTER_API_KEY` | openrouter.ai/keys | sin respaldo si OpenAI falla |
+| `SLACK_APP_TOKEN` · `SLACK_BOT_TOKEN` | api.slack.com/apps, ver abajo | no hay canal del comprador |
+| `TELEGRAM_BOT_TOKEN` | @BotFather → `/newbot` | no hay proveedores humanos |
+| `EXA_API_KEY` | dashboard.exa.ai | solo el catálogo sembrado |
+| `AMBIGUOUS_API_KEY` | `npx ambiguous auth signup` | no queda rastro en el workspace |
+| `MAIL_API_KEY` · `MAIL_FROM` | resend.com/api-keys | el enlace sale en pantalla |
+| `CONTROL_TOKEN` | invéntalo, o lo genera el despliegue | **los controles quedan abiertos** |
+| `PUBLIC_URL` | tu dominio | los enlaces apuntan a localhost |
+| `MARKET_PLACE` · `BASE_SEPOLIA_RPC` · `PORT` | tienen valor por defecto | — |
+
+Opcionales que no están en el ejemplo porque casi nunca se tocan:
+`APPROVAL_TTL_MS` (10 min por defecto), `DB_PATH`, `DEPOSITS_FROM_BLOCK`,
+`WALLETS_FILE`, `AMBIGUOUS_MCP_URL`, `OPENAI_MODEL`, `LLM_MODEL`.
+
+### La app de Slack, paso a paso
+
+Socket mode: **no** necesitas URL pública, ni túnel, ni signing secret.
+
+1. api.slack.com/apps → **Create New App** → From scratch.
+2. **Socket Mode: ON** → genera el App-Level Token (`xapp-`) con `connections:write`.
+3. **OAuth & Permissions** → Bot Token Scopes:
+   `chat:write` · `app_mentions:read` · `im:history` · `im:read` · `users:read` · `users:read.email`
+4. **Event Subscriptions** → Subscribe to bot events: `app_mention` · `message.im`
+5. **Install to Workspace** → copia el Bot Token (`xoxb-`).
+
+### El bot de Telegram
+
+@BotFather → `/newbot` → copia el token. Y lo que no se puede improvisar:
+**cada proveedor tiene que mandarle `/start` al bot antes de la demo.** Un bot
+no puede escribir primero.
+
+### El correo
+
+Sin dominio verificado en Resend, el único remitente que funciona es
+`onboarding@resend.dev`, y solo puede escribirle al correo con el que abriste
+la cuenta. Con `mercadia.space` verificado, el remitente puede ser cualquier
+dirección del dominio y el destinatario cualquiera.
 
 En swarm los secretos entran como archivo: cualquiera de arriba acepta
 `VAR_FILE` apuntando a `/run/secrets/…`.
