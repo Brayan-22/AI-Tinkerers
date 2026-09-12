@@ -3,3 +3,4 @@ wallets.json
 .env
 data/
 web/dist/
+.ambi/
