@@ -122,6 +122,15 @@ export function llmBrain(fallback, { key, model = MODELO, url, providers, timeou
       // expulsa por ofertar sin plata. Cotizar es del vendedor, no del comprador.
       if (accion.action.type === 'offer' && agent.role === 'seller') return fallback(agent, view);
       if (accion.action.type === 'quote' && agent.role === 'buyer') return fallback(agent, view);
+      // Aceptar un trato que no existe es una violación y a las dos, expulsión.
+      // El id lo pone el libro, no el modelo: si no hay oferta firme, no se acepta.
+      if (accion.action.type === 'accept') {
+        if (!view.bestOffer) return fallback(agent, view);
+        accion.action.offerId = view.bestOffer.id;
+      }
+      // Ofertar compromete fondos. En la fase de cotización el comprador tiene
+      // cero, así que ofertar ahí lo haría expulsar por su propio agente.
+      if (accion.action.type === 'offer' && !agent.budget) return fallback(agent, view);
       // Si hay una oferta firme que cubre su propio piso y el modelo no la
       // toma, se le quita el teclado: nadie rechaza la plata que él mismo pidió.
       if (view.bestOffer && agent.minPrice && view.bestOffer.price >= agent.minPrice

@@ -108,3 +108,42 @@ test('rfq: sin techo ni plazo declarados, no se descarta a nadie por eso', async
   assert.equal(descartadas.length, 0, 'un límite que nadie puso no puede descartar');
   assert.ok(deal, 'y el trato cierra');
 });
+
+test('rfq: si el ganador se arrepiente, se adjudica al siguiente', async () => {
+  const arrepentido = { ...proveedor('SE-ARREPIENTE', 40, 2) };
+  // Cotiza bien pero nunca acepta una oferta firme.
+  arrepentido.brain = (agent, view) => (view.bestOffer
+    ? { text: 'mejor no', reason: 'me arrepentí', action: { type: 'talk' } }
+    : supplierBrain(agent, view));
+
+  const rfq = new Rfq({
+    demand: compra({ maxPrice: 80, maxLeadDays: 7 }),
+    suppliers: [arrepentido, proveedor('CUMPLE', 45, 3)],
+    notary, rondas: 2,
+  });
+  const { deal } = await rfq.run();
+  assert.ok(deal, 'no se queda sin trato porque uno se eche para atrás');
+  assert.equal(deal.seller, 'CUMPLE');
+});
+
+test('rfq: si ninguno cierra, igual entrega la mejor cotización', async () => {
+  const eventos = [];
+  const terco = (nombre, piso) => {
+    const p = proveedor(nombre, piso, 2);
+    p.brain = (agent, view) => (view.bestOffer
+      ? { text: 'no', reason: 'no quiero', action: { type: 'talk' } }
+      : supplierBrain(agent, view));
+    return p;
+  };
+  const rfq = new Rfq({
+    demand: compra({ maxPrice: 80, maxLeadDays: 7 }),
+    suppliers: [terco('UNO', 40), terco('DOS', 50)],
+    notary, rondas: 2, onEvent: (e) => eventos.push(e),
+  });
+  const { deal, winner } = await rfq.run();
+  assert.equal(deal, null);
+  const aviso = eventos.find((e) => e.type === 'sin_cierre');
+  assert.ok(aviso, 'avisa que no cerró');
+  assert.equal(aviso.mejor.seller, 'UNO', 'y dice cuál era la mejor');
+  assert.equal(winner.seller, 'UNO');
+});
