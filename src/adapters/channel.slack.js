@@ -143,6 +143,10 @@ export function slackChannel({
           case 'quote_received':
             cotizadas.push(ev);
             return decir(donde, `💬 *${ev.owner ?? ev.seller}* cotiza ${plata(ev.price)} · ${ev.leadDays} días\n_${ev.reason ?? ''}_`);
+          case 'no_quote':
+            return decir(donde, ev.humano
+              ? `📵 *${ev.owner}* no contestó a tiempo. Sigo con los demás; no invento una cotización por él.`
+              : `➖ *${ev.owner}* no cotizó (${ev.reason}).`);
           case 'quote_rejected':
             return decir(donde, `✂️ Descarto *${ev.seller}*: ${ev.reason}`);
           case 'exploitation_alert':

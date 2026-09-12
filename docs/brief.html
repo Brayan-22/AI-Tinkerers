@@ -350,7 +350,7 @@
   <div class="meta">
     <div><span class="campo">Equipo</span><span class="valor">Gludsito</span></div>
     <div><span class="campo">Entorno</span><span class="valor">Slack + Telegram</span></div>
-    <div><span class="campo">Pruebas</span><span class="valor">77 / 77</span></div>
+    <div><span class="campo">Pruebas</span><span class="valor">78 / 78</span></div>
     <div><span class="campo">Cadena</span><span class="valor">Base Sepolia</span></div>
   </div>
 
@@ -399,7 +399,7 @@
           <tr><td>Imagen de Docker y despliegue en swarm</td><td><span class="chip duda">sin construir</span></td><td>Los archivos están validados con el esquema, no con un build</td></tr>
           <tr><td>Escribirle a un proveedor que Exa encontró</td><td><span class="chip no">no existe</span></td><td>Queda en el mapa; su negociación la juega un agente marcado como simulado</td></tr>
           <tr><td>Leer tus contactos del celular</td><td><span class="chip no">imposible</span></td><td>Un bot de Telegram no puede escribir primero. WhatsApp tampoco</td></tr>
-          <tr><td>Liquidación y anclaje on-chain con gas real</td><td><span class="chip no">no probado</span></td><td>Corrido a propósito contra un RPC muerto para no tocar la red</td></tr>
+          <tr><td>Anclaje on-chain en Base Sepolia</td><td><span class="chip duda">extensión opcional</span></td><td>El escrow y las dos firmas viven en SQLite; la cadena falla suave y queda fuera del video</td></tr>
         </tbody>
       </table>
     </div>
@@ -449,14 +449,16 @@
   </section>
 
   <section>
-    <h2>Cómo se demuestra en cuatro minutos</h2>
+    <h2>El video, en dos minutos</h2>
     <ol class="pasos">
-      <li><b>Pedir en Slack</b> <span>«necesito 200 botellas de agua para el viernes, máximo $1.500». El agente responde qué entendió y qué se pagó la última vez.</span></li>
-      <li><b>Tres celulares suenan</b> <span>al mismo tiempo. Tres compañeros contestan distinto, en texto libre, delante del jurado.</span></li>
-      <li><b>El hilo se llena</b> <span>de cotizaciones, descartes con su razón, y la referencia de precio de Exa con sus fuentes.</span></li>
-      <li><b>Apretar el botón</b> <span>y abrir el contrato firmado con las dos firmas, el plazo y el hash de la negociación.</span></li>
-      <li><b>El golpe final</b> <span>es la falla: soltar un agente que oferta sin fondos y verlo expulsado, y quitar la llave del modelo en vivo para ver que la negociación sigue.</span></li>
+      <li><b>0:00 – 0:25 · Pedido en Slack</b> <span>«necesito 200 botellas de agua para el viernes, máximo $1.500». El agente responde qué entendió y qué se pagó la última vez en ese canal.</span></li>
+      <li><b>0:25 – 0:55 · Tres celulares suenan</b> <span>al mismo tiempo. Tres compañeros contestan en texto libre, cada uno distinto.</span></li>
+      <li><b>0:55 – 1:15 · El hilo se llena</b> <span>de cotizaciones, descartes con su razón, y la referencia de precio de Exa con sus fuentes.</span></li>
+      <li><b>1:15 – 1:35 · El botón</b> <span>y el contrato abierto: dos firmas, plazo y hash de la negociación.</span></li>
+      <li><b>1:35 – 1:55 · La falla</b> <span>manejada en vivo: un agente sin fondos expulsado, y la llave del modelo retirada mientras la negociación sigue.</span></li>
+      <li><b>1:55 – 2:00 · Cierre</b> <span>«Mercadia vive donde ustedes ya trabajan».</span></li>
     </ol>
+    <p>Antes de grabar: los tres proveedores hacen <code>/start</code> al bot, porque Telegram no puede escribir primero. Se graba un respaldo completo antes de la toma final. Y nunca se finge una acción: lo que no corre se declara como no corrido.</p>
   </section>
 
   <section>
@@ -465,7 +467,7 @@
     <div class="cifras">
       <div><span class="campo">Dominio</span><b>470</b><span class="valor">líneas, cero I/O</span></div>
       <div><span class="campo">Adaptadores</span><b>1.361</b><span class="valor">líneas</span></div>
-      <div><span class="campo">Pruebas</span><b>865</b><span class="valor">líneas, 77 casos</span></div>
+      <div><span class="campo">Pruebas</span><b>865</b><span class="valor">líneas, 78 casos</span></div>
       <div><span class="campo">Dependencias</span><b>2</b><span class="valor">en el backend</span></div>
     </div>
     <h3>Las piezas</h3>
@@ -478,12 +480,19 @@
   </section>
 
   <section>
-    <h2>Riesgos abiertos</h2>
+    <h2>Riesgos abiertos, en orden</h2>
     <ul class="plana">
-      <li><strong>Faltan cinco tokens</strong> para que los canales existan de verdad: los dos de Slack, el de Telegram, el de Exa y el del modelo.</li>
-      <li><strong>El front y la imagen nunca se compilaron.</strong> Es el punto más probable de falla en vivo y se arregla con dos comandos.</li>
-      <li><strong>La demo necesita tres personas</strong> con el celular en la mano. Sin contrapartes humanas, el argumento central se cae y vuelve a ser una simulación.</li>
+      <li><strong>Elegibilidad, y va primero.</strong> El motor de negociación es de agosto. Se pregunta por escrito al organizador local antes de las 11:30. En el README y en los commits queda documentado qué se construyó hoy: si piden desde cero, el motor se declara librería previa y el proyecto es la mediación multicanal.</li>
+      <li><strong>Cinco tokens</strong> para que los canales existan: Slack en socket mode necesita un App-Level Token y el Bot Token, sin signing secret ni URL pública; Telegram desde BotFather; Exa; OpenAI como cerebro principal y OpenRouter como respaldo.</li>
+      <li><strong>La demo necesita tres personas</strong> con el celular en la mano. Si una no contesta, el hilo lo dice y sigue con las demás; no se le inventa una cotización a nadie.</li>
+      <li><strong>Fuera del camino crítico:</strong> el anclaje on-chain, el geovisor y el despliegue con Docker no entran al video. Están escritos, no se demuestran.</li>
     </ul>
+  </section>
+
+  <section>
+    <h2>Para el portal y el post</h2>
+    <p><strong>Descripción.</strong> Un chatbox es un humano y un modelo. Mercadia toma una línea en Slack y la convierte en negociaciones simultáneas con personas reales en su celular, que no instalan nada ni cambian cómo trabajan. El canal solo ve el resultado y un botón. El modelo negocia; un guardián determinista decide si se mueve la plata.</p>
+    <p><strong>Post.</strong> Construimos Mercadia en #AgentsEverywhere con @AITinkerers Bogotá: pides en Slack, el agente negocia con proveedores reales por Telegram, compara, descarta con razones y cierra con dos firmas. Cerebro con @OpenAI y respaldo en @OpenRouter, proveedores y precio de referencia con @Exa. Gracias a @CopilotKit por el impulso a sacar los agentes del chatbox.</p>
   </section>
 
   <footer>Mercadia · Equipo Gludsito · AI Tinkerers Bogotá · 12 septiembre 2026</footer>

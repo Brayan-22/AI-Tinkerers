@@ -52,7 +52,7 @@ test('llm: completa cantidad y plazo si el modelo los olvida', async () => {
 import { pedidoPorReglas } from '../src/adapters/brain.llm.js';
 
 test('pedido: entiende cantidad, techo y plazo escritos como los escribe alguien', () => {
-  const jueves = new Date('2026-09-12T12:00:00Z'); // viernes
+  const jueves = new Date('2026-09-10T12:00:00Z'); // jueves
   const p = pedidoPorReglas('necesito 200 botellas de agua para el viernes, máximo $1.500 c/u', jueves);
   assert.equal(p.qty, 200);
   assert.equal(p.maxPrice, 1500);
@@ -75,7 +75,7 @@ test('pedido: sin techo de precio lo deja en null y no lo inventa', () => {
 import { cotizacionPorReglas } from '../src/adapters/brain.llm.js';
 
 test('cotización: entiende cómo contesta una persona de verdad', () => {
-  const jueves = new Date('2026-09-12T12:00:00Z');
+  const jueves = new Date('2026-09-10T12:00:00Z'); // jueves
   const a = cotizacionPorReglas('te la dejo en 1.200 la unidad y te la mando el viernes', jueves);
   assert.equal(a.price, 1200);
   assert.equal(a.leadDays, 1);
@@ -99,4 +99,27 @@ test('cotización: sin plazo no lo inventa', () => {
   const r = cotizacionPorReglas('son $1.100 la unidad');
   assert.equal(r.price, 1100);
   assert.equal(r.leadDays, null, 'si no dijo cuándo, no se asume');
+});
+
+import { completar } from '../src/adapters/brain.llm.js';
+
+test('llm: si OpenAI falla, sigue con OpenRouter, y solo después con el determinista', async () => {
+  const llamadas = [];
+  const caidas = [];
+  globalThis.fetch = async (url) => {
+    llamadas.push(url);
+    if (url.includes('openai.com')) return { ok: false, status: 503, json: async () => ({}) };
+    return { ok: true, json: async () => ({ choices: [{ message: { content: '{"text":"$44","reason":"piso 41","action":{"type":"quote","price":44,"qty":100}}' } }] }) };
+  };
+  const providers = [
+    { name: 'openai', key: 'a', url: 'https://api.openai.com/v1/chat/completions', model: 'gpt-4o-mini' },
+    { name: 'openrouter', key: 'b', url: 'https://openrouter.ai/api/v1/chat/completions', model: 'openai/gpt-4o-mini' },
+  ];
+  const r = await completar([{ role: 'user', content: 'hola' }], { providers, onFallback: (n, why) => caidas.push(`${n}:${why}`) });
+  assert.equal(r.proveedor, 'openrouter');
+  assert.equal(llamadas.length, 2, 'intentó los dos en orden');
+  assert.deepEqual(caidas, ['openai:http 503']);
+
+  globalThis.fetch = async () => { throw new Error('red caída'); };
+  assert.equal(await completar([{ role: 'user', content: 'hola' }], { providers }), null, 'sin proveedor vivo devuelve null y no lanza');
 });

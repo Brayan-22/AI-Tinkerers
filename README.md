@@ -25,6 +25,29 @@ documentó en [Project Deal](https://www.anthropic.com/features/project-deal).
 existe y cómo se demuestra. Publicado en
 [claude.ai/code/artifact/5e740620](https://claude.ai/code/artifact/5e740620-2cdd-46e7-81db-fdcf756f57bb).
 
+## Qué se construyó hoy y qué venía de antes
+
+Regla del evento: la funcionalidad central se construye durante el hackathon.
+Esto es lo que hay, dicho sin rodeos.
+
+**De antes (hackathon de agosto, 783 líneas):** el libro contable, el núcleo
+del guardián (escrow, identidad, strikes), la arena de ladrones y los cerebros
+deterministas de la arena.
+
+**De hoy (AI Tinkerers Bogotá, 12 de septiembre):** todo lo que hace que el
+agente viva en canales y compre de verdad. Reestructura hexagonal con test que
+la sostiene · acta firmada EIP-191 y cadena de hashes · persistencia SQLite ·
+idempotencia y registro antes del pago · depósitos, retiros y custodia
+declarada · motor de cotizaciones en paralelo (RFQ) · catálogo, geolocalización
+y descubrimiento con Exa · autorización con timeout por correo y por Slack ·
+contrato HTML · adaptador de Slack (socket mode) · adaptador de Telegram y
+proveedor humano · cerebros con modelo (OpenAI → OpenRouter → determinista) ·
+tarjeta A2A · front Angular · Docker y stack · 78 pruebas.
+
+Más del ochenta por ciento del código es de hoy, y lo que sobrevive de agosto
+quedó reescrito al moverlo al hexágono. El motor previo se declara como
+librería base; el proyecto es la mediación multicanal.
+
 ## Correr
 
 ```bash
@@ -278,12 +301,14 @@ APPROVAL_SECRET=     # firma de los enlaces de autorización
 WALLETS_FILE=        # opcional, ruta de wallets.json (en swarm, /run/secrets/wallets)
 APPROVAL_TTL_MS=     # opcional, default 10 minutos; vencido = no
                      # los secretos aceptan VAR o VAR_FILE (Docker Swarm)
-OPENROUTER_API_KEY=  # o OPENAI_API_KEY: cerebros LLM. Sin llave, deterministas
-LLM_MODEL=           # opcional, default openai/gpt-4o-mini
-LLM_BASE_URL=        # opcional, cualquier API compatible con OpenAI
+OPENAI_API_KEY=      # cerebro principal (gpt-4o-mini por defecto)
+OPENROUTER_API_KEY=  # respaldo si OpenAI falla. Sin ninguna de las dos: deterministas
+OPENAI_MODEL=        # opcional, default gpt-4o-mini
+LLM_MODEL=           # opcional, modelo en OpenRouter, default openai/gpt-4o-mini
 EXA_API_KEY=         # descubrimiento de proveedores y referencia de precio
-SLACK_APP_TOKEN=     # xapp-… socket mode
-SLACK_BOT_TOKEN=     # xoxb-… chat:write, app_mentions:read, im:history, users:read
+SLACK_APP_TOKEN=     # xapp-… (App-Level Token con connections:write). Socket mode:
+                     # NO hace falta signing secret ni URL pública
+SLACK_BOT_TOKEN=     # xoxb-… scopes: chat:write, app_mentions:read, im:history, users:read
 TELEGRAM_BOT_TOKEN=  # el bot que habla con los proveedores (BotFather)
 MARKET_PLACE=        # opcional, dónde buscar proveedores. Default Colombia
 ```

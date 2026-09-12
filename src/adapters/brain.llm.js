@@ -5,15 +5,54 @@
 // expulsan por ofertar sin fondos. El LLM nunca es la frontera de seguridad,
 // y por eso se le puede dar libertad para hablar.
 //
-// Compatible con OpenAI y OpenRouter: misma API, distinta URL base.
+// Dos proveedores en cadena: OpenAI primero, OpenRouter si OpenAI falla, y el
+// cerebro determinista si fallan los dos. Misma API de chat en ambos, así que
+// la cadena es una lista y no dos códigos.
 import { secret } from './secrets.js';
 
-const URL_LLM = process.env.LLM_BASE_URL ?? 'https://openrouter.ai/api/v1/chat/completions';
-const MODELO = process.env.LLM_MODEL ?? 'openai/gpt-4o-mini';
 const ACCIONES = ['quote', 'offer', 'accept', 'talk', 'reject', 'walk_away'];
+const MODELO = process.env.LLM_MODEL ?? 'openai/gpt-4o-mini';
+
+export function proveedores() {
+  const lista = [
+    {
+      name: 'openai', key: secret('OPENAI_API_KEY'),
+      url: process.env.OPENAI_BASE_URL ?? 'https://api.openai.com/v1/chat/completions',
+      model: process.env.OPENAI_MODEL ?? 'gpt-4o-mini',
+    },
+    {
+      name: 'openrouter', key: secret('OPENROUTER_API_KEY'),
+      url: process.env.LLM_BASE_URL ?? 'https://openrouter.ai/api/v1/chat/completions',
+      model: MODELO,
+    },
+  ];
+  return lista.filter((p) => p.key);
+}
 
 export function llmKey() {
-  return secret('OPENROUTER_API_KEY') ?? secret('OPENAI_API_KEY') ?? null;
+  return proveedores()[0]?.key ?? null;
+}
+
+// Una llamada de chat que recorre la cadena. Devuelve el texto o null; nunca
+// lanza: quien llama ya tiene un plan B determinista.
+export async function completar(messages, { providers = proveedores(), temperature = 0.7, maxTokens = 220, timeoutMs = 12_000, onFallback } = {}) {
+  for (const p of providers) {
+    try {
+      const res = await fetch(p.url, {
+        method: 'POST', signal: AbortSignal.timeout(timeoutMs),
+        headers: { authorization: `Bearer ${p.key}`, 'content-type': 'application/json' },
+        body: JSON.stringify({ model: p.model, temperature, max_tokens: maxTokens, messages }),
+      });
+      if (!res.ok) { onFallback?.(p.name, `http ${res.status}`); continue; }
+      const data = await res.json();
+      const texto = data?.choices?.[0]?.message?.content;
+      if (texto) return { texto, proveedor: p.name };
+      onFallback?.(p.name, 'respuesta vacía');
+    } catch (e) {
+      onFallback?.(p.name, e.name === 'TimeoutError' ? 'timeout' : e.message);
+    }
+  }
+  return null;
 }
 
 const mandato = (agent, view) => {
@@ -65,26 +104,17 @@ export function parseAction(contenido) {
 
 // Envuelve un cerebro determinista: si no hay llave, si el modelo se cae o si
 // contesta basura, negocia el de siempre. La mesa nunca se queda esperando.
-export function llmBrain(fallback, { key = llmKey(), model = MODELO, timeoutMs = 12_000 } = {}) {
-  if (!key) return fallback;
+export function llmBrain(fallback, { key, model = MODELO, url, providers, timeoutMs = 12_000, onFallback } = {}) {
+  const cadena = providers ?? (key ? [{ name: 'custom', key, model, url: url ?? 'https://openrouter.ai/api/v1/chat/completions' }] : proveedores());
+  if (!cadena.length) return fallback;
 
   return async (agent, view) => {
-    const corte = AbortSignal.timeout(timeoutMs);
     try {
-      const res = await fetch(URL_LLM, {
-        method: 'POST', signal: corte,
-        headers: { authorization: `Bearer ${key}`, 'content-type': 'application/json' },
-        body: JSON.stringify({
-          model, temperature: 0.7, max_tokens: 220,
-          messages: [
-            { role: 'system', content: `${mandato(agent, view)}\n\n${INSTRUCCION}` },
-            { role: 'user', content: view.lastQuote || view.bestOffer ? 'Tu turno.' : 'Abre la negociación.' },
-          ],
-        }),
-      });
-      if (!res.ok) return fallback(agent, view);
-      const data = await res.json();
-      const accion = parseAction(data?.choices?.[0]?.message?.content);
+      const r = await completar([
+        { role: 'system', content: `${mandato(agent, view)}\n\n${INSTRUCCION}` },
+        { role: 'user', content: view.lastQuote || view.bestOffer ? 'Tu turno.' : 'Abre la negociación.' },
+      ], { providers: cadena, timeoutMs, onFallback });
+      const accion = parseAction(r?.texto);
       // El techo y el piso no se negocian con el modelo: se imponen acá.
       if (!accion) return fallback(agent, view);
       if (accion.action.type === 'offer' && agent.maxPrice && accion.action.price > agent.maxPrice) return fallback(agent, view);
@@ -170,59 +200,43 @@ export function cotizacionPorReglas(texto, hoy = new Date()) {
   };
 }
 
-export async function extraerCotizacion(texto, { key = llmKey(), model = MODELO } = {}) {
+export async function extraerCotizacion(texto, { providers = proveedores() } = {}) {
   const reglas = cotizacionPorReglas(texto);
-  if (!key) return { ...reglas, via: 'reglas' };
+  if (!providers.length) return { ...reglas, via: 'reglas' };
   try {
-    const res = await fetch(URL_LLM, {
-      method: 'POST', signal: AbortSignal.timeout(10_000),
-      headers: { authorization: `Bearer ${key}`, 'content-type': 'application/json' },
-      body: JSON.stringify({
-        model, temperature: 0, max_tokens: 120,
-        messages: [{
-          role: 'system',
-          content: `Hoy es ${new Date().toISOString().slice(0, 10)} (${new Date().toLocaleDateString('es-CO', { weekday: 'long' })}).
+    const r = await completar([{
+      role: 'system',
+      content: `Hoy es ${new Date().toISOString().slice(0, 10)} (${new Date().toLocaleDateString('es-CO', { weekday: 'long' })}).
 Un proveedor contestó a una solicitud de cotización. Extrae SOLO JSON:
 {"price":precio por unidad como number o null,"leadDays":días hasta la entrega como number o null,"rechaza":true si dice que no tiene o no puede}
 El precio es por unidad. Si da un total, divídelo si sabes la cantidad; si no, déjalo como está.`,
-        }, { role: 'user', content: String(texto).slice(0, 500) }],
-      }),
-    });
-    if (!res.ok) return { ...reglas, via: 'reglas' };
-    const data = await res.json();
-    const bruto = String(data?.choices?.[0]?.message?.content ?? '');
+    }, { role: 'user', content: String(texto).slice(0, 500) }], { providers, temperature: 0, maxTokens: 120, timeoutMs: 10_000 });
+    if (!r) return { ...reglas, via: 'reglas' };
+    const bruto = String(r.texto);
     const json = JSON.parse(bruto.slice(bruto.indexOf('{'), bruto.lastIndexOf('}') + 1));
     return {
       price: Number(json.price) > 0 ? Number(json.price) : reglas.price,
       leadDays: Number(json.leadDays) > 0 ? Number(json.leadDays) : reglas.leadDays,
       rechaza: Boolean(json.rechaza) || reglas.rechaza,
-      via: 'modelo',
+      via: r.proveedor,
     };
   } catch {
     return { ...reglas, via: 'reglas' };
   }
 }
 
-export async function extraerPedido(texto, { key = llmKey(), model = MODELO } = {}) {
+export async function extraerPedido(texto, { providers = proveedores() } = {}) {
   const reglas = pedidoPorReglas(texto);
-  if (!key) return { ...reglas, via: 'reglas' };
+  if (!providers.length) return { ...reglas, via: 'reglas' };
   try {
-    const res = await fetch(URL_LLM, {
-      method: 'POST', signal: AbortSignal.timeout(10_000),
-      headers: { authorization: `Bearer ${key}`, 'content-type': 'application/json' },
-      body: JSON.stringify({
-        model, temperature: 0, max_tokens: 150,
-        messages: [{
-          role: 'system',
-          content: `Hoy es ${new Date().toISOString().slice(0, 10)}. Extrae el pedido de compra y responde SOLO JSON:
+    const r = await completar([{
+      role: 'system',
+      content: `Hoy es ${new Date().toISOString().slice(0, 10)}. Extrae el pedido de compra y responde SOLO JSON:
 {"item":"qué quiere comprar, en singular y sin cantidad","qty":number,"maxPrice":number o null,"maxLeadDays":number}
 maxPrice es por unidad. maxLeadDays son días desde hoy hasta la entrega.`,
-        }, { role: 'user', content: String(texto).slice(0, 500) }],
-      }),
-    });
-    if (!res.ok) return { ...reglas, via: 'reglas' };
-    const data = await res.json();
-    const bruto = String(data?.choices?.[0]?.message?.content ?? '');
+    }, { role: 'user', content: String(texto).slice(0, 500) }], { providers, temperature: 0, maxTokens: 150, timeoutMs: 10_000 });
+    if (!r) return { ...reglas, via: 'reglas' };
+    const bruto = String(r.texto);
     const json = JSON.parse(bruto.slice(bruto.indexOf('{'), bruto.lastIndexOf('}') + 1));
     if (!json?.item) return { ...reglas, via: 'reglas' };
     return {
@@ -230,7 +244,7 @@ maxPrice es por unidad. maxLeadDays son días desde hoy hasta la entrega.`,
       qty: Number(json.qty) > 0 ? Number(json.qty) : reglas.qty,
       maxPrice: Number(json.maxPrice) > 0 ? Number(json.maxPrice) : reglas.maxPrice,
       maxLeadDays: Number(json.maxLeadDays) > 0 ? Number(json.maxLeadDays) : reglas.maxLeadDays,
-      via: 'modelo',
+      via: r.proveedor,
     };
   } catch {
     return { ...reglas, via: 'reglas' };

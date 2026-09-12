@@ -81,7 +81,12 @@ export class Rfq {
 
     const ultima = [...mesa.transcript].reverse()
       .find((e) => e.type === 'message' && e.agent === supplier.name && e.action?.type === 'quote');
-    if (!ultima) return null;
+    if (!ultima) {
+      // No se le inventa nada: se dice que no cotizó y por qué, y la mesa sigue.
+      const porQue = [...mesa.transcript].reverse().find((e) => e.type === 'message' && e.agent === supplier.name)?.reason;
+      this.#emit('no_quote', { seller: supplier.name, owner: supplier.owner ?? supplier.name, humano: Boolean(supplier.humano), reason: porQue ?? 'no cotizó' });
+      return null;
+    }
 
     const quote = {
       seller: supplier.name, owner: supplier.owner ?? supplier.name,
