@@ -61,9 +61,13 @@ npm run dev              # backend en :3000
 El front va en otra terminal:
 
 ```bash
-npm --prefix web install
+npm --prefix web install --legacy-peer-deps
 npm run web              # :4200, con proxy a :3000
 ```
+
+La bandera no es opcional: npm 10.9 se cae resolviendo el grafo de peers de
+Angular 21 con `Cannot read properties of null (reading 'edgesOut')`. Es un
+bug de npm, no del proyecto, y todas las versiones declaradas existen.
 
 Todo junto en un contenedor, con el mismo `.env`:
 

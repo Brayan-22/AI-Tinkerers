@@ -1,8 +1,11 @@
 # El front se compila aparte; el backend solo sirve el resultado.
 FROM node:22-alpine AS web
 WORKDIR /web
-COPY web/package.json ./
-RUN npm install
+COPY web/package.json web/package-lock.json ./
+# --legacy-peer-deps: npm 10.9 se cae resolviendo el grafo de peers de Angular
+# 21 ("Cannot read properties of null (reading 'edgesOut')"). Es un bug de npm,
+# no del proyecto: todas las versiones existen.
+RUN npm ci --legacy-peer-deps --no-audit --no-fund
 COPY web/ ./
 RUN npm run build
 
